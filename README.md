@@ -17,3 +17,6 @@
 经过训练的专家根据经验，会标记出臂丛神经的位置：
 
 ![标记图](sample/1_1_mask.png)
+
+## 相关链接
+[开发计划](https://github.com/ThoughtWorksInc/ultrasound-nerve-segmentation/wiki/%E5%BC%80%E5%8F%91%E8%AE%A1%E5%88%92)
