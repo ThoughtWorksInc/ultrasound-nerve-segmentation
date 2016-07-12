@@ -1,6 +1,5 @@
-import unittest
 import os
-import numpy as np
+import unittest
 
 from ultra_detection.input_data import read_data_sets
 
