@@ -28,4 +28,4 @@ class InputDataTestCase(unittest.TestCase):
         batch = data.train.next_batch(1)
 
         self.assertEqual(batch[0].shape, (1, 420, 580))
-        self.assertEqual(batch[1].shape, (1,))
+        self.assertEqual(batch[1].shape, (1, 2))

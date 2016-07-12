@@ -15,7 +15,7 @@ def load_label(paths):
     def has_bp(img):
         return np.any(img != 0)
 
-    return np.array([has_bp(plt.imread(p)) for p in paths], dtype=np.float32)
+    return np.array([np.array([1, 0]) if has_bp(p) else np.array([0, 1]) for p in paths], dtype=np.float32)
 
 
 class DataSet(object):
