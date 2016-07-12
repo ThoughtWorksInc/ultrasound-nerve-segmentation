@@ -15,7 +15,7 @@ def load_label(paths):
     def has_bp(img):
         return np.any(img != 0)
 
-    return np.array([np.array([1, 0]) if has_bp(p) else np.array([0, 1]) for p in paths], dtype=np.float32)
+    return np.array([np.array([1, 0]) if has_bp(plt.imread(p)) else np.array([0, 1]) for p in paths], dtype=np.float32)
 
 
 class DataSet(object):
@@ -44,6 +44,14 @@ class DataSet(object):
 
         return load_img(self.img_paths[start:end]), load_label(self.label_paths[start:end])
 
+    @property
+    def all_images(self):
+        return load_img(self.img_paths)
+
+    @property
+    def all_labels(self):
+        return load_label(self.label_paths)
+
 
 def read_data_sets(train_dir, train_size, val_size, test_size=None):
     distinct_names = list(
@@ -58,6 +66,7 @@ def read_data_sets(train_dir, train_size, val_size, test_size=None):
     test_last_index = None if test_size is None else train_size + val_size + test_size
     test_index = perm[train_size + val_size:test_last_index]
 
+    # TODO: concat path should use path tools
     def generate_img_paths(indexes):
         return np.array(['%s/%s.tif' % (train_dir, distinct_names[i]) for i in indexes])
 
