@@ -87,3 +87,9 @@ ENV/
 
 # Rope project settings
 .ropeproject
+
+# intellij files
+.idea/
+
+# mac files
+.DS_Store
