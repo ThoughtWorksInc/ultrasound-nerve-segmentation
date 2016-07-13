@@ -85,7 +85,7 @@ def run_training(datasets):
     train_step = training(cross_entropy)
 
     correct_prediction = tf.equal(tf.argmax(y_conv, 1), tf.argmax(y_, 1))
-    accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+    eval_correct = tf.reduce_sum(tf.cast(correct_prediction, tf.float32))
 
     summary_op = tf.merge_all_summaries()
 
@@ -98,12 +98,13 @@ def run_training(datasets):
 
     sess.run(init)
 
-    for i in range(20):
-      batch = datasets.train.next_batch(50)
+    batch_size = 50
+    for i in range(400):
+      batch = datasets.train.next_batch(batch_size)
       if i % 5 == 0:
-        acc, loss_res = sess.run([accuracy, cross_entropy], feed_dict={
+        num_correct, loss_res = sess.run([eval_correct, cross_entropy], feed_dict={
           x: batch[0], y_: batch[1], keep_prob: 1.0})
-        print("step %d, loss %g, training accuracy %g" % (i, loss_res, acc))
+        print("step %d, loss %g, training eval_correct %g" % (i, loss_res, num_correct / batch_size))
 
         summary_str = sess.run(summary_op, feed_dict={
           x: batch[0], y_: batch[1], keep_prob: 1.0})
@@ -111,17 +112,26 @@ def run_training(datasets):
         summary_writer.flush()
 
         # val_batch = datasets.validation.next_batch(10)
-        # validation_accuracy = accuracy.eval(feed_dict={
+        # validation_accuracy = eval_correct.eval(feed_dict={
         #     x: val_batch[0], y_: val_batch[1], keep_prob: 1.0
         # })
-        # print("step %d, validation accuracy %g" % (i, validation_accuracy))
+        # print("step %d, validation eval_correct %g" % (i, validation_accuracy))
       sess.run(train_step, feed_dict={x: batch[0], y_: batch[1], keep_prob: 0.5})
 
-    print("test accuracy %g" % sess.run(accuracy, feed_dict={
-      x: datasets.test.all_images, y_: datasets.test.all_labels, keep_prob: 1.0}))
+    # evaluate test rate
+    num_test = 0
+    num_correct = 0
+
+    for i in range(len(datasets.test.img_paths) // batch_size):
+      batch = datasets.test.next_batch(batch_size)
+      num_test += batch_size
+      num_correct += sess.run(eval_correct, feed_dict={
+        x: batch[0], y_: batch[1], keep_prob: 1.0})
+
+    print("test eval_correct %g, test %g, correct %g" % (num_correct / num_test, num_test, num_correct))
 
 
 # load data
-ultra = read_data_sets('/Users/dtong/code/data/competition/ultrasound-nerve-segmentation/sample', 50, 10)
+ultra = read_data_sets('/Users/dtong/code/data/competition/ultrasound-nerve-segmentation/train', 5000, 200)
 
 run_training(ultra)
