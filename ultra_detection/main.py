@@ -47,7 +47,7 @@ def inference(keep_prob, x_image):
 
     # dropout
     h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob)
-  with tf.name_scope('fc1'):
+  with tf.name_scope('fc2'):
     # fc 2
     weights = tf.Variable(tf.truncated_normal([1024, 2], stddev=1.0 / math.sqrt(105 * 145 * 64 / 2), name='weights'))
     biases = tf.Variable(tf.constant(0.01, shape=[2], name='biases'))
