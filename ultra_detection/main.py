@@ -2,6 +2,7 @@ import math
 
 import tensorflow as tf
 
+from ultra_detection.download_data_from_s3 import download_data
 from ultra_detection.input_data import read_data_sets
 
 
@@ -99,9 +100,9 @@ def run_training(datasets):
     sess.run(init)
 
     batch_size = 50
-    for i in range(400):
+    for i in range(500):
       batch = datasets.train.next_batch(batch_size)
-      if i % 5 == 0:
+      if i % 10 == 0:
         num_correct, loss_res = sess.run([eval_correct, cross_entropy], feed_dict={
           x: batch[0], y_: batch[1], keep_prob: 1.0})
         print("step %d, loss %g, training eval_correct %g" % (i, loss_res, num_correct / batch_size))
@@ -132,6 +133,7 @@ def run_training(datasets):
 
 
 # load data
-ultra = read_data_sets('/Users/dtong/code/data/competition/ultrasound-nerve-segmentation/train', 5000, 200)
+download_data('data')
+ultra = read_data_sets('data/train', 5000, 200)
 
 run_training(ultra)
