@@ -1,8 +1,10 @@
 import math
+import os
 
 import tensorflow as tf
+import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 
-from ultra_detection.download_data_from_s3 import download_data
 from ultra_detection.input_data import read_data_sets
 
 
@@ -16,7 +18,7 @@ def max_pool_2x2(x):
 
 
 def loss(y_, y_conv):
-  cross_entropy = tf.reduce_mean(-tf.reduce_sum(y_ * tf.log(y_conv), reduction_indices=[1]), name='xentropy')
+  cross_entropy = tf.reduce_mean(tf.reduce_sum(tf.square(tf.sub(y_, y_conv)), reduction_indices=[1]), name='xentropy')
   return cross_entropy
 
 
@@ -28,33 +30,31 @@ def inference(keep_prob, x_image):
 
     # relu + pool
     h_conv1 = tf.nn.relu(conv2d(x_image, weights) + biases)
-    h_pool1 = max_pool_2x2(h_conv1)
+    # h_pool1 = max_pool_2x2(h_conv1)
   with tf.name_scope('conv2'):
     # conv 2
     weights = tf.Variable(
-      tf.truncated_normal([5, 5, 32, 64], stddev=1.0 / math.sqrt(210 * 290 * 32 / 2), name='weights'))
+      tf.truncated_normal([5, 5, 32, 64], stddev=1.0 / math.sqrt(420 * 580 * 32 / 2), name='weights'))
     biases = tf.Variable(tf.constant(0.01, shape=[64], name='biases'))
 
-    h_conv2 = tf.nn.relu(conv2d(h_pool1, weights) + biases)
-    h_pool2 = max_pool_2x2(h_conv2)
-  h_pool2_flat = tf.reshape(h_pool2, [-1, 105 * 145 * 64])
-  with tf.name_scope('fc1'):
-    # fc 1
+    h_conv2 = tf.nn.relu(conv2d(h_conv1, weights) + biases)
+    # h_pool2 = max_pool_2x2(h_conv2)
+  # h_pool2_flat = tf.reshape(h_pool2, [-1, 105 * 145 * 64])
+
+  with tf.name_scope('conv3'):
     weights = tf.Variable(
-      tf.truncated_normal([105 * 145 * 64, 1024], stddev=1.0 / math.sqrt(105 * 145 * 64 / 2), name='weights'))
-    biases = tf.Variable(tf.constant(0.01, shape=[1024], name='biases'))
+      tf.truncated_normal([5, 5, 64, 64], stddev=1.0 / math.sqrt(420 * 580 * 64 / 2), name='weights'))
+    biases = tf.Variable(tf.constant(0.01, shape=[64], name='biases'))
 
-    h_fc1 = tf.nn.relu(tf.matmul(h_pool2_flat, weights) + biases)
+    h_conv3 = tf.nn.relu(conv2d(h_conv2, weights) + biases)
 
-    # dropout
-    h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob)
-  with tf.name_scope('fc2'):
-    # fc 2
-    weights = tf.Variable(tf.truncated_normal([1024, 2], stddev=1.0 / math.sqrt(105 * 145 * 64 / 2), name='weights'))
-    biases = tf.Variable(tf.constant(0.01, shape=[2], name='biases'))
+  with tf.name_scope('mask'):
+    weights = tf.Variable(
+      tf.truncated_normal([5, 5, 64, 1], stddev=1.0 / math.sqrt(420 * 580 * 64 / 2), name='weights'))
+    biases = tf.Variable(tf.constant(0.01, shape=[1], name='biases'))
 
-    # softmax
-    y_conv = tf.nn.softmax(tf.matmul(h_fc1_drop, weights) + biases)
+    h_mask = tf.nn.relu(conv2d(h_conv3, weights) + biases)
+    y_conv = tf.reshape(h_mask, [-1, 420*580])
 
   return y_conv
 
@@ -70,7 +70,7 @@ def run_training(datasets):
   with tf.Graph().as_default():
     # input layer
     x = tf.placeholder(tf.float32, shape=[None, 420, 580])
-    y_ = tf.placeholder(tf.float32, shape=[None, 2])
+    y_ = tf.placeholder(tf.float32, shape=[None, 420*580])
 
     # dropout prob
     keep_prob = tf.placeholder(tf.float32)
@@ -85,9 +85,6 @@ def run_training(datasets):
 
     train_step = training(cross_entropy)
 
-    correct_prediction = tf.equal(tf.argmax(y_conv, 1), tf.argmax(y_, 1))
-    eval_correct = tf.reduce_sum(tf.cast(correct_prediction, tf.float32))
-
     summary_op = tf.merge_all_summaries()
 
     # start session
@@ -99,41 +96,42 @@ def run_training(datasets):
 
     sess.run(init)
 
-    batch_size = 50
-    for i in range(500):
+    batch_size = 10
+    for i in range(100):
       batch = datasets.train.next_batch(batch_size)
-      if i % 10 == 0:
-        num_correct, loss_res = sess.run([eval_correct, cross_entropy], feed_dict={
+      if i % 1 == 0:
+        loss_res = sess.run(cross_entropy, feed_dict={
           x: batch[0], y_: batch[1], keep_prob: 1.0})
-        print("step %d, loss %g, training eval_correct %g" % (i, loss_res, num_correct / batch_size))
+        print("step %d, loss %g" % (i, loss_res))
 
         summary_str = sess.run(summary_op, feed_dict={
           x: batch[0], y_: batch[1], keep_prob: 1.0})
         summary_writer.add_summary(summary_str, i)
         summary_writer.flush()
 
-        # val_batch = datasets.validation.next_batch(10)
-        # validation_accuracy = eval_correct.eval(feed_dict={
-        #     x: val_batch[0], y_: val_batch[1], keep_prob: 1.0
-        # })
-        # print("step %d, validation eval_correct %g" % (i, validation_accuracy))
       sess.run(train_step, feed_dict={x: batch[0], y_: batch[1], keep_prob: 0.5})
 
     # evaluate test rate
     num_test = 0
-    num_correct = 0
+    test_loss = .0
 
     for i in range(len(datasets.test.img_paths) // batch_size):
       batch = datasets.test.next_batch(batch_size)
       num_test += batch_size
-      num_correct += sess.run(eval_correct, feed_dict={
+      y_res, batch_test_loss = sess.run([y_conv, cross_entropy], feed_dict={
         x: batch[0], y_: batch[1], keep_prob: 1.0})
+      test_loss += batch_test_loss
+      if not os.path.exists('result'):
+        os.makedirs('result')
 
-    print("test eval_correct %g, test %g, correct %g" % (num_correct / num_test, num_test, num_correct))
+      for j, prediction, real in enumerate(zip(y_res, batch[1])):
+        plt.imsave('result/%s_%s_predict.tif' % (i,j), tf.reshape(prediction, [420, 580]), cmap=cm.gray_s)
+        plt.imsave('result/%s_%s_real.tif' % (i,j), tf.reshape(real, [420, 580]), cmap=cm.gray_s)
+
+    print("test total loss %g, test %g" % (test_loss, num_test))
 
 
 # load data
-download_data('data')
-ultra = read_data_sets('data/train', 5000, 200)
+ultra = read_data_sets('/Users/dtong/code/data/competition/ultrasound-nerve-segmentation/sample', 100, 10)
 
 run_training(ultra)
