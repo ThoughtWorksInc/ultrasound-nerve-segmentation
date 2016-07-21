@@ -1,9 +1,8 @@
 import math
 import os
 
-import tensorflow as tf
 import matplotlib.pyplot as plt
-import matplotlib.cm as cm
+import tensorflow as tf
 
 from ultra_detection.input_data import read_data_sets
 
@@ -115,6 +114,7 @@ def run_training(datasets):
     num_test = 0
     test_loss = .0
 
+    print(len(datasets.test.img_paths))
     for i in range(len(datasets.test.img_paths) // batch_size):
       batch = datasets.test.next_batch(batch_size)
       num_test += batch_size
@@ -124,14 +124,14 @@ def run_training(datasets):
       if not os.path.exists('result'):
         os.makedirs('result')
 
-      for j, prediction, real in enumerate(zip(y_res, batch[1])):
-        plt.imsave('result/%s_%s_predict.tif' % (i,j), tf.reshape(prediction, [420, 580]), cmap=cm.gray_s)
-        plt.imsave('result/%s_%s_real.tif' % (i,j), tf.reshape(real, [420, 580]), cmap=cm.gray_s)
+      for j, prediction, real in zip(range(len(y_res)), y_res, batch[1]):
+        plt.imsave('result/%s_%s_predict.tif' % (i,j), prediction.reshape((420, 580)), cmap='gray', vmin=0, vmax=1)
+        plt.imsave('result/%s_%s_real.tif' % (i,j), real.reshape((420, 580)), cmap='gray')
 
     print("test total loss %g, test %g" % (test_loss, num_test))
 
 
 # load data
-ultra = read_data_sets('/Users/dtong/code/data/competition/ultrasound-nerve-segmentation/sample', 100, 10)
+ultra = read_data_sets('/Users/dtong/code/data/competition/ultrasound-nerve-segmentation/sample', 50, 10)
 
 run_training(ultra)
