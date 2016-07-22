@@ -6,84 +6,99 @@ import matplotlib.pyplot as plt
 
 Datasets = collections.namedtuple('Datasets', ['train', 'validation', 'test'])
 
+YType = collections.namedtuple('YType', ['cls', 'loc'])
+
 
 def load_img(paths):
-    return np.array([plt.imread(p) for p in paths], dtype=np.uint8)
+  return np.array([plt.imread(p) for p in paths], dtype=np.uint8)
 
 
 def load_label(paths):
-    def has_bp(img):
-        return np.any(img != 0)
+  def has_bp(img):
+    return np.any(img != 0)
 
-    return np.array([np.array([1, 0]) if has_bp(plt.imread(p)) else np.array([0, 1]) for p in paths], dtype=np.float32)
+  return np.array([np.array([1, 0]) if has_bp(plt.imread(p)) else np.array([0, 1]) for p in paths], dtype=np.float32)
+
+
+def load_loc(paths):
+  def extract_loc(img):
+    indexes = np.argwhere(img > 0)
+    if indexes.any():
+      return np.array([np.min(indexes[:, 0]) / 420, np.min(indexes[:, 1]) / 580, np.max(indexes[:, 0]) / 420, np.max(indexes[:, 1]) / 580], dtype=np.float32)
+    else:
+      return np.array([0, 0, 0, 0])
+
+  return np.array([extract_loc(plt.imread(p)) for p in paths], dtype=np.float32)
+
 
 
 class DataSet(object):
-    def __init__(self, img_paths, label_paths):
-        self.img_paths = img_paths
-        self.label_paths = label_paths
+  def __init__(self, img_paths, label_paths):
+    self.img_paths = img_paths
+    self.label_paths = label_paths
 
-        self._num_examples = len(self.img_paths)
-        self._epochs_completed = 0
-        self._index_in_epoch = 0
+    self._num_examples = len(self.img_paths)
+    self._epochs_completed = 0
+    self._index_in_epoch = 0
 
-    def next_batch(self, batch_size):
-        start = self._index_in_epoch
-        self._index_in_epoch += batch_size
+  def next_batch(self, batch_size):
+    start = self._index_in_epoch
+    self._index_in_epoch += batch_size
 
-        if self._index_in_epoch > self._num_examples:
-            self._epochs_completed += 1
-            perm = np.arange(self._num_examples)
-            np.random.shuffle(perm)
-            self.img_paths = self.img_paths[perm]
-            self.label_paths = self.label_paths[perm]
-            start = 0
-            self._index_in_epoch = batch_size
+    if self._index_in_epoch > self._num_examples:
+      self._epochs_completed += 1
+      perm = np.arange(self._num_examples)
+      np.random.shuffle(perm)
+      self.img_paths = self.img_paths[perm]
+      self.label_paths = self.label_paths[perm]
+      start = 0
+      self._index_in_epoch = batch_size
 
-        end = self._index_in_epoch
+    end = self._index_in_epoch
+    return load_img(
+      self.img_paths[start:end]), YType(cls=load_label(self.label_paths[start:end]),
+                                        loc=load_loc(self.label_paths[start:end]))
 
-        return load_img(self.img_paths[start:end]), load_label(self.label_paths[start:end])
+  @property
+  def all_images(self):
+    return load_img(self.img_paths)
 
-    @property
-    def all_images(self):
-        return load_img(self.img_paths)
-
-    @property
-    def all_labels(self):
-        return load_label(self.label_paths)
+  @property
+  def all_labels(self):
+    return load_label(self.label_paths)
 
 
 def read_data_sets(train_dir, train_size, val_size, test_size=None):
-    distinct_names = list(
-        set(os.path.splitext(f)[0].replace('_mask', '') for f in os.listdir(train_dir) if f != '.DS_Store'))
+  distinct_names = list(
+    set(os.path.splitext(f)[0].replace('_mask', '') for f in os.listdir(train_dir) if f != '.DS_Store'))
 
-    num = len(distinct_names)
-    perm = np.arange(num)
-    np.random.shuffle(perm)
+  num = len(distinct_names)
+  perm = np.arange(num)
+  np.random.shuffle(perm)
 
-    train_index = perm[0:train_size]
-    val_index = perm[train_size:train_size + val_size]
-    test_last_index = None if test_size is None else train_size + val_size + test_size
-    test_index = perm[train_size + val_size:test_last_index]
+  train_index = perm[0:train_size]
+  val_index = perm[train_size:train_size + val_size]
+  test_last_index = None if test_size is None else train_size + val_size + test_size
+  test_index = perm[train_size + val_size:test_last_index]
 
-    # TODO: concat path should use path tools
-    def generate_img_paths(indexes):
-        return np.array(['%s/%s.tif' % (train_dir, distinct_names[i]) for i in indexes])
+  # TODO: concat path should use path tools
+  def generate_img_paths(indexes):
+    return np.array(['%s/%s.tif' % (train_dir, distinct_names[i]) for i in indexes])
 
-    def generate_label_paths(indexes):
-        return np.array(['%s/%s_mask.tif' % (train_dir, distinct_names[i]) for i in indexes])
+  def generate_label_paths(indexes):
+    return np.array(['%s/%s_mask.tif' % (train_dir, distinct_names[i]) for i in indexes])
 
-    train_img_paths = generate_img_paths(train_index)
-    train_label_paths = generate_label_paths(train_index)
+  train_img_paths = generate_img_paths(train_index)
+  train_label_paths = generate_label_paths(train_index)
 
-    val_img_paths = generate_img_paths(val_index)
-    val_label_paths = generate_label_paths(val_index)
+  val_img_paths = generate_img_paths(val_index)
+  val_label_paths = generate_label_paths(val_index)
 
-    test_img_paths = generate_img_paths(test_index)
-    test_label_paths = generate_label_paths(test_index)
+  test_img_paths = generate_img_paths(test_index)
+  test_label_paths = generate_label_paths(test_index)
 
-    train_dataset = DataSet(train_img_paths, train_label_paths)
-    val_dataset = DataSet(val_img_paths, val_label_paths)
-    test_dataset = DataSet(test_img_paths, test_label_paths)
+  train_dataset = DataSet(train_img_paths, train_label_paths)
+  val_dataset = DataSet(val_img_paths, val_label_paths)
+  test_dataset = DataSet(test_img_paths, test_label_paths)
 
-    return Datasets(train=train_dataset, validation=val_dataset, test=test_dataset)
+  return Datasets(train=train_dataset, validation=val_dataset, test=test_dataset)
