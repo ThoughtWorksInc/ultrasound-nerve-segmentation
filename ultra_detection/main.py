@@ -1,4 +1,6 @@
 import math
+import os
+from datetime import datetime
 
 import tensorflow as tf
 
@@ -72,6 +74,14 @@ def training(cross_entropy, l2):
   return train_step
 
 
+def save_model(saver, sess):
+  model_dir = os.path.join('model', str(datetime.now()))
+  if not os.path.exists(model_dir):
+    os.makedirs(model_dir)
+  save_path = saver.save(sess, os.path.join(model_dir, 'model.ckpt'))
+  print('Model saved in file: %s' % save_path)
+
+
 def run_training(datasets):
   with tf.Graph().as_default():
     # input layer
@@ -106,6 +116,8 @@ def run_training(datasets):
 
     sess.run(init)
 
+    saver = tf.train.Saver()
+
     batch_size = 50
     for i in range(100):
       batch = datasets.train.next_batch(batch_size)
@@ -113,7 +125,7 @@ def run_training(datasets):
         num_correct, loss_res, l2_res = sess.run([eval_correct, cross_entropy, l2], feed_dict={
           x: batch[0], y_cls: batch[1].cls, y_loc: batch[1].loc, keep_prob: 1.0})
         print("step %d, cls loss %g, loc_loss %g, training eval_correct %g" % (
-        i, loss_res, l2_res, num_correct / batch_size))
+          i, loss_res, l2_res, num_correct / batch_size))
 
         summary_str = sess.run(summary_op, feed_dict={
           x: batch[0], y_cls: batch[1].cls, y_loc: batch[1].loc, keep_prob: 1.0})
@@ -135,7 +147,10 @@ def run_training(datasets):
       num_correct += batch_correct
       num_l2 += batch_l2
 
-    print("test eval_correct %g, l2 loss %g, test %g, correct %g" % (num_correct / num_test, num_l2, num_test, num_correct))
+    print(
+      "test eval_correct %g, l2 loss %g, test %g, correct %g" % (num_correct / num_test, num_l2, num_test, num_correct))
+
+    save_model(saver, sess)
 
 
 # load data
