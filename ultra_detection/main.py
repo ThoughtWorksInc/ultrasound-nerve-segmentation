@@ -114,7 +114,6 @@ def run_training(datasets):
     num_test = 0
     test_loss = .0
 
-    print(len(datasets.test.img_paths))
     for i in range(len(datasets.test.img_paths) // batch_size):
       batch = datasets.test.next_batch(batch_size)
       num_test += batch_size
