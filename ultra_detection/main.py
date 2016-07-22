@@ -75,7 +75,7 @@ def training(cross_entropy, l2):
 
 
 def save_model(saver, sess):
-  model_dir = os.path.join('model', str(datetime.now()))
+  model_dir = os.path.join('model', datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
   if not os.path.exists(model_dir):
     os.makedirs(model_dir)
   save_path = saver.save(sess, os.path.join(model_dir, 'model.ckpt'))
