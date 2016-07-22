@@ -120,27 +120,22 @@ def run_training(datasets):
         summary_writer.add_summary(summary_str, i)
         summary_writer.flush()
 
-        # val_batch = datasets.validation.next_batch(10)
-        # validation_accuracy = eval_correct.eval(feed_dict={
-        #     x: val_batch[0], y_: val_batch[1], keep_prob: 1.0
-        # })
-        # print("step %d, validation eval_correct %g" % (i, validation_accuracy))
       sess.run(train_step, feed_dict={x: batch[0], y_cls: batch[1].cls, y_loc: batch[1].loc, keep_prob: 0.5})
 
     # evaluate test rate
     num_test = 0
     num_correct = 0
+    num_l2 = .0
 
-    for i in range(len(datasets.train.img_paths) // batch_size):
+    for i in range(len(datasets.test.img_paths) // batch_size):
       batch = datasets.test.next_batch(batch_size)
       num_test += batch_size
-      batch_correct, batch_loc = sess.run([eval_correct, y_train_loc], feed_dict={
+      batch_correct, batch_l2 = sess.run([eval_correct, l2], feed_dict={
         x: batch[0], y_cls: batch[1].cls, y_loc: batch[1].loc, keep_prob: 1.0})
       num_correct += batch_correct
-      print(num_correct)
-      print(list(zip(batch_loc, batch[1].loc)))
+      num_l2 += batch_l2
 
-    print("test eval_correct %g, test %g, correct %g" % (num_correct / num_test, num_test, num_correct))
+    print("test eval_correct %g, l2 loss %g, test %g, correct %g" % (num_correct / num_test, num_l2, num_test, num_correct))
 
 
 # load data
