@@ -15,6 +15,18 @@ def load_label(paths):
     return np.array([plt.imread(p).reshape((420*580,)) > 0 for p in paths], dtype=np.float32)
 
 
+def calculate_dice(img_dir):
+  paths = [os.path.join(img_dir, p) for p in os.listdir(img_dir) if p != '.DS_Store' and p.endswith('mask.tif')]
+  num_images = len(paths)
+  print('found %g images' % num_images)
+  total_dice = .0
+  for i in range(num_images):
+    if i % 100 == 0:
+      print('finished %g' % i)
+    total_dice += 0.0000000001 / (np.sum(plt.imread(paths[i]) > 0) + 0.0000000001)
+  print(total_dice / num_images)
+
+
 class DataSet(object):
     def __init__(self, img_paths, label_paths):
         self.img_paths = img_paths
