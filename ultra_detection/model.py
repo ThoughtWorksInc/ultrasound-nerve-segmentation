@@ -13,6 +13,45 @@ def max_pool_2x2(x):
 
 
 def inference(keep_prob, x_image):
+  h_fc1_drop = feature_map(keep_prob, x_image)
+  y_cls = classification_head(h_fc1_drop)
+  y_loc = regression_head(h_fc1_drop)
+  return y_cls, y_loc
+
+
+def classification_model(keep_prob, x_image):
+  h_fc1_drop = feature_map(keep_prob, x_image)
+  y_cls = classification_head(h_fc1_drop)
+  return y_cls
+
+
+def regression_model(keep_prob, x_image):
+  h_fc1_drop = feature_map(keep_prob, x_image)
+  y_loc = regression_head(h_fc1_drop)
+  return y_loc
+
+def regression_head(h_fc1_drop):
+  with tf.name_scope('loc_head'):
+    # fc 2
+    weights = tf.Variable(tf.truncated_normal([128, 4], stddev=1.0 / math.sqrt(105 * 145 * 64 / 2), name='weights'))
+    biases = tf.Variable(tf.constant(0.01, shape=[4], name='biases'))
+
+    y_loc = tf.matmul(h_fc1_drop, weights) + biases
+  return y_loc
+
+
+def classification_head(h_fc1_drop):
+  with tf.name_scope('cls_head'):
+    # fc 2
+    weights = tf.Variable(tf.truncated_normal([128, 2], stddev=1.0 / math.sqrt(105 * 145 * 64 / 2), name='weights'))
+    biases = tf.Variable(tf.constant(0.01, shape=[2], name='biases'))
+
+    # softmax
+    y_cls = tf.nn.softmax(tf.matmul(h_fc1_drop, weights) + biases)
+  return y_cls
+
+
+def feature_map(keep_prob, x_image):
   with tf.name_scope('conv1'):
     # conv 1
     weights = tf.Variable(tf.truncated_normal([5, 5, 1, 32], stddev=1.0 / math.sqrt(420 * 580 / 2), name='weights'))
@@ -40,31 +79,4 @@ def inference(keep_prob, x_image):
 
     # dropout
     h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob)
-  with tf.name_scope('cls_head'):
-    # fc 2
-    weights = tf.Variable(tf.truncated_normal([128, 2], stddev=1.0 / math.sqrt(105 * 145 * 64 / 2), name='weights'))
-    biases = tf.Variable(tf.constant(0.01, shape=[2], name='biases'))
-
-    # softmax
-    y_cls = tf.nn.softmax(tf.matmul(h_fc1_drop, weights) + biases)
-  with tf.name_scope('loc_head'):
-    # fc 2
-    weights = tf.Variable(tf.truncated_normal([128, 4], stddev=1.0 / math.sqrt(105 * 145 * 64 / 2), name='weights'))
-    biases = tf.Variable(tf.constant(0.01, shape=[4], name='biases'))
-
-    y_loc = tf.matmul(h_fc1_drop, weights) + biases
-  return y_cls, y_loc
-
-
-def loss(y_cls, y_loc, y_train_cls, y_train_loc):
-  cross_entropy = tf.reduce_mean(-tf.reduce_sum(y_cls * tf.log(y_train_cls), reduction_indices=[1]), name='xentropy')
-  l2 = tf.reduce_mean(tf.reduce_sum(tf.squared_difference(y_loc, y_train_loc), reduction_indices=[1]), name='l2_loss')
-  return cross_entropy, l2
-
-
-def training(cross_entropy, l2):
-  tf.scalar_summary(cross_entropy.op.name, cross_entropy)
-  tf.scalar_summary(l2.op.name, l2)
-  # solver
-  train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy + l2)
-  return train_step
+  return h_fc1_drop

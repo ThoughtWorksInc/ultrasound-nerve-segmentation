@@ -3,12 +3,12 @@ from datetime import datetime
 
 import tensorflow as tf
 
-from ultra_detection.model import inference, loss, training
+from ultra_detection.model import inference
 from ultra_detection.input_data import read_data_sets
 
 
-def save_model(saver, sess):
-  model_dir = os.path.join('model', datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
+def save_model(saver, sess, model_type):
+  model_dir = os.path.join('%s-model' % model_type, datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
   if not os.path.exists(model_dir):
     os.makedirs(model_dir)
   save_path = saver.save(sess, os.path.join(model_dir, 'model.ckpt'))
@@ -83,10 +83,24 @@ def run_training(datasets):
     print(
       "test eval_correct %g, l2 loss %g, test %g, correct %g" % (num_correct / num_test, num_l2, num_test, num_correct))
 
-    save_model(saver, sess)
+    save_model(saver, sess, 'cls')
 
 
 # load data
 ultra = read_data_sets('/Users/dtong/code/data/competition/ultrasound-nerve-segmentation/sample', 50, 10)
 
 run_training(ultra)
+
+
+def loss(y_cls, y_loc, y_train_cls, y_train_loc):
+  cross_entropy = tf.reduce_mean(-tf.reduce_sum(y_cls * tf.log(y_train_cls), reduction_indices=[1]), name='xentropy')
+  l2 = tf.reduce_mean(tf.reduce_sum(tf.squared_difference(y_loc, y_train_loc), reduction_indices=[1]), name='l2_loss')
+  return cross_entropy, l2
+
+
+def training(cross_entropy, l2):
+  tf.scalar_summary(cross_entropy.op.name, cross_entropy)
+  tf.scalar_summary(l2.op.name, l2)
+  # solver
+  train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy + l2)
+  return train_step
