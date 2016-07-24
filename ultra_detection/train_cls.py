@@ -67,10 +67,10 @@ def run_training(datasets):
     for i in range(100):
       batch = datasets.train.next_batch(batch_size)
       if i % 10 == 0:
-        num_correct, loss_res, l2_res = sess.run([eval_correct, cross_entropy, l2], feed_dict={
+        num_correct, loss_res= sess.run([eval_correct, cross_entropy], feed_dict={
           x: batch[0], y_cls: batch[1].cls, y_loc: batch[1].loc, keep_prob: 1.0})
-        print("step %d, cls loss %g, loc_loss %g, training eval_correct %g" % (
-          i, loss_res, l2_res, num_correct / batch_size))
+        print("step %d, cls loss %g, training eval_correct %g" % (
+          i, loss_res, num_correct / batch_size))
 
         summary_str = sess.run(summary_op, feed_dict={
           x: batch[0], y_cls: batch[1].cls, y_loc: batch[1].loc, keep_prob: 1.0})
@@ -82,18 +82,16 @@ def run_training(datasets):
     # evaluate test rate
     num_test = 0
     num_correct = 0
-    num_l2 = .0
 
     for i in range(len(datasets.test.img_paths) // batch_size):
       batch = datasets.test.next_batch(batch_size)
       num_test += batch_size
-      batch_correct, batch_l2 = sess.run([eval_correct], feed_dict={
+      batch_correct = sess.run([eval_correct], feed_dict={
         x: batch[0], y_cls: batch[1].cls, y_loc: batch[1].loc, keep_prob: 1.0})
       num_correct += batch_correct
-      num_l2 += batch_l2
 
     print(
-      "test eval_correct %g, l2 loss %g, test %g, correct %g" % (num_correct / num_test, num_l2, num_test, num_correct))
+      "test eval_correct %g, test %g, correct %g" % (num_correct / num_test, num_test, num_correct))
 
     save_model(saver, sess, 'cls')
 
