@@ -16,16 +16,22 @@ def save_model(saver, sess, model_type):
 
 
 def loss(y_cls, y_loc, y_train_cls, y_train_loc):
-  cross_entropy = tf.reduce_mean(-tf.reduce_sum(y_cls * tf.log(y_train_cls), reduction_indices=[1]), name='xentropy')
-  l2 = tf.reduce_mean(tf.reduce_sum(tf.squared_difference(y_loc, y_train_loc), reduction_indices=[1]), name='l2_loss')
-  return cross_entropy, l2
+  # the train rect should be within the real rect
+  delta = tf.concat(1, [tf.sub(y_train_loc[:, 0:2], y_loc[:, 0:2]), tf.sub(y_loc[:, 2:], y_train_loc[:, 2:])])
+
+  # |exp(-delta) - 1|
+  return delta, tf.reduce_mean(tf.reduce_sum(tf.abs(tf.sub(tf.exp(-delta), 1)), reduction_indices=[1]), name='dice_loss')
+
+  # cross_entropy = tf.reduce_mean(-tf.reduce_sum(y_cls * tf.log(y_train_cls), reduction_indices=[1]), name='xentropy')
+  # l2 = tf.reduce_mean(tf.reduce_sum(tf.squared_difference(y_loc, y_train_loc), reduction_indices=[1]), name='l2_loss')
+  # return cross_entropy, l2
 
 
-def training(cross_entropy, l2):
-  tf.scalar_summary(cross_entropy.op.name, cross_entropy)
-  tf.scalar_summary(l2.op.name, l2)
+def training(dice_loss):
+  # tf.scalar_summary(cross_entropy.op.name, cross_entropy)
+  tf.scalar_summary(dice_loss.op.name, dice_loss)
   # solver
-  train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy + l2)
+  train_step = tf.train.AdamOptimizer(1e-3).minimize(dice_loss)
   return train_step
 
 
@@ -45,9 +51,10 @@ def run_training(datasets):
     y_train_conv, y_train_loc = inference(keep_prob, x_image)
 
     # loss
-    cross_entropy, l2 = loss(y_cls, y_loc, y_train_conv, y_train_loc)
+    # dice_loss, l2 = loss(y_cls, y_loc, y_train_conv, y_train_loc)
+    delta, dice_loss= loss(y_cls, y_loc, y_train_conv, y_train_loc)
 
-    train_step = training(cross_entropy, l2)
+    train_step = training(dice_loss)
 
     correct_prediction = tf.equal(tf.argmax(y_train_conv, 1), tf.argmax(y_cls, 1))
     eval_correct = tf.reduce_sum(tf.cast(correct_prediction, tf.float32))
@@ -65,37 +72,40 @@ def run_training(datasets):
 
     saver = tf.train.Saver()
 
-    batch_size = 50
+    batch_size = 10
     for i in range(100):
       batch = datasets.train.next_batch(batch_size)
       if i % 10 == 0:
-        num_correct, loss_res, l2_res = sess.run([eval_correct, cross_entropy, l2], feed_dict={
+        num_correct, loss_res, loc_res, delta_res = sess.run([eval_correct, dice_loss, y_train_loc, delta], feed_dict={
           x: batch[0], y_cls: batch[1].cls, y_loc: batch[1].loc, keep_prob: 1.0})
-        print("step %d, cls loss %g, loc_loss %g, training eval_correct %g" % (
-          i, loss_res, l2_res, num_correct / batch_size))
+        print("step %d, dice loss %g, training eval_correct %g" % (
+          i, loss_res, num_correct / batch_size))
 
         summary_str = sess.run(summary_op, feed_dict={
           x: batch[0], y_cls: batch[1].cls, y_loc: batch[1].loc, keep_prob: 1.0})
         summary_writer.add_summary(summary_str, i)
         summary_writer.flush()
 
+        print(delta_res)
+        for r_loc, p_loc in zip(batch[1].loc, loc_res):
+          print(r_loc, p_loc)
+
       sess.run(train_step, feed_dict={x: batch[0], y_cls: batch[1].cls, y_loc: batch[1].loc, keep_prob: 0.5})
 
     # evaluate test rate
     num_test = 0
     num_correct = 0
-    num_l2 = .0
+    num_dice = .0
 
     for i in range(len(datasets.test.img_paths) // batch_size):
       batch = datasets.test.next_batch(batch_size)
       num_test += batch_size
-      batch_correct, batch_l2 = sess.run([eval_correct, l2], feed_dict={
+      batch_correct, batch_dice = sess.run([eval_correct, dice_loss], feed_dict={
         x: batch[0], y_cls: batch[1].cls, y_loc: batch[1].loc, keep_prob: 1.0})
       num_correct += batch_correct
-      num_l2 += batch_l2
-
+      num_dice += batch_dice
     print(
-      "test eval_correct %g, l2 loss %g, test %g, correct %g" % (num_correct / num_test, num_l2, num_test, num_correct))
+      "test eval_correct %g, dice loss %g, test %g, correct %g" % (num_correct / num_test, num_dice / num_test, num_test, num_correct))
 
     save_model(saver, sess, 'cls')
 

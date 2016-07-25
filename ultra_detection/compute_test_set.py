@@ -10,7 +10,7 @@ from ultra_detection.model import inference
 
 
 def read_test_data(data_dir):
-  return list(map(lambda p: os.path.join(data_dir, p), filter(lambda p: p != '.DS_Store', os.listdir(data_dir))))
+  return list(map(lambda p: os.path.join(data_dir, p), filter(lambda p: p != '.DS_Store' and 'mask' not in p, os.listdir(data_dir))))
 
 
 def extract_img_id(path):
@@ -22,24 +22,26 @@ def has_bp(cls):
 
 
 def round_the_rect(rect, radius=10):
-  drop_pixels = [radius - int(math.sqrt(radius ** 2 - i ** 2)) for i in range(radius, 0, -1)]
+  if rect:
+    drop_pixels = [radius - int(math.sqrt(radius ** 2 - i ** 2)) for i in range(radius, 0, -1)]
+    print(rect, drop_pixels)
 
-  for i in range(radius):
-    rect[i][0] += drop_pixels[i]
-    rect[i][1] -= 2 * drop_pixels[i]
-    rect[-1 - i][0] += drop_pixels[i]
-    rect[-1 - i][1] -= 2 * drop_pixels[i]
+    for i in range(radius):
+      rect[i][0] += drop_pixels[i]
+      rect[i][1] -= 2 * drop_pixels[i]
+      rect[-1 - i][0] += drop_pixels[i]
+      rect[-1 - i][1] -= 2 * drop_pixels[i]
 
 
 def generate_rle(loc):
-  # points = [int(loc[0] * 420), int(loc[1] * 580), int(loc[2] * 420), int(loc[3] * 580)]
+  points = [int(loc[0] * 420), int(loc[1] * 580), int(loc[0] * 420) + int(loc[2] * 420), int(loc[1] * 580) + int(loc[3] * 580)]
 
   # only generate center points
-  points = [
-    (int(loc[0] * 420) + int(loc[2] * 420)) // 2 - 3,
-    (int(loc[1] * 580) + int(loc[3] * 580)) // 2 - 3,
-    (int(loc[0] * 420) + int(loc[2] * 420)) // 2 + 3,
-    (int(loc[1] * 580) + int(loc[3] * 580)) // 2 + 3]
+  # points = [
+  #   (int(loc[0] * 420) + int(loc[2] * 420)) // 2 - 3,
+  #   (int(loc[1] * 580) + int(loc[3] * 580)) // 2 - 3,
+  #   (int(loc[0] * 420) + int(loc[2] * 420)) // 2 + 3,
+  #   (int(loc[1] * 580) + int(loc[3] * 580)) // 2 + 3]
 
   rect = []
   for i in range(points[1], points[3] + 1):
@@ -71,7 +73,7 @@ def predict(data_paths):
 
     saver = tf.train.Saver()
 
-    saver.restore(sess, 'model_path/model.ckpt')
+    saver.restore(sess, 'cls-model/2016-07-25_16-46-08/model.ckpt')
 
     print('session restored.')
 
@@ -89,8 +91,9 @@ def predict(data_paths):
         res_cls, res_loc = sess.run([y_test_conv, y_test_loc], feed_dict={x: batch, keep_prob: 1.0})
 
         for name, cls, loc in zip(batch_paths, res_cls, res_loc):
-          f.write('%s, %s\n' % (extract_img_id(name), generate_rle(loc) if has_bp(cls) else ''))
+          print(name, loc)
+          f.write('%s, %s\n' % (extract_img_id(name), generate_rle(loc)))
 
 
-data_paths = read_test_data('../test/')
+data_paths = read_test_data('../sample/')
 predict(data_paths)
