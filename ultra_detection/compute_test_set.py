@@ -22,7 +22,7 @@ def has_bp(cls):
 
 
 def round_the_rect(rect, radius=10):
-  drop_pixels = [10 - int(math.sqrt(radius ** 2 - i ** 2)) for i in range(10, 0, -1)]
+  drop_pixels = [radius - int(math.sqrt(radius ** 2 - i ** 2)) for i in range(radius, 0, -1)]
 
   for i in range(radius):
     rect[i][0] += drop_pixels[i]
@@ -32,12 +32,20 @@ def round_the_rect(rect, radius=10):
 
 
 def generate_rle(loc):
-  points = [int(loc[0] * 420), int(loc[1] * 580), int(loc[2] * 420), int(loc[3] * 580)]
+  # points = [int(loc[0] * 420), int(loc[1] * 580), int(loc[2] * 420), int(loc[3] * 580)]
+
+  # only generate center points
+  points = [
+    (int(loc[0] * 420) + int(loc[2] * 420)) // 2 - 3,
+    (int(loc[1] * 580) + int(loc[3] * 580)) // 2 - 3,
+    (int(loc[0] * 420) + int(loc[2] * 420)) // 2 + 3,
+    (int(loc[1] * 580) + int(loc[3] * 580)) // 2 + 3]
+
   rect = []
   for i in range(points[1], points[3] + 1):
     rect.append([i * 420 + points[0], points[2] - points[0]])
 
-  round_the_rect(rect)
+  round_the_rect(rect, 1)
 
   return ' '.join(' '.join(str(item) for item in row) for row in rect)
 
