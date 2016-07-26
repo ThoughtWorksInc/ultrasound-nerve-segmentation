@@ -1,7 +1,7 @@
 import os
 import unittest
 
-from ultra_detection.input_data import read_data_sets
+from ultra_detection.data import read_data_sets
 
 
 def get_file_name(path):

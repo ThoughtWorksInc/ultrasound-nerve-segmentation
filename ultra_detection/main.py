@@ -4,8 +4,9 @@ import os
 import matplotlib.pyplot as plt
 import tensorflow as tf
 import numpy as np
+from ultra_detection import data
 
-from ultra_detection.input_data import read_data_sets
+from ultra_detection.data import read_data_sets
 
 
 def conv2d(x, W):
@@ -154,7 +155,14 @@ def run_training(datasets):
     print("test total loss %g, overall score %g, test %g" % (test_loss / num_iter, total_dice / num_iter, num_test))
 
 
-# load data
-ultra = read_data_sets('/Users/dtong/code/data/competition/ultrasound-nerve-segmentation/sample', 50, 10)
 
-run_training(ultra)
+if __name__ == '__main__':
+  data_dir = 'artifacts/data'
+
+  if not os.path.exists(data_dir):
+    data.create_train_data('../train', data_dir)
+
+  # load data
+  # ultra = read_data_sets('/Users/dtong/code/data/competition/ultrasound-nerve-segmentation/sample', 50, 10)
+  #
+  # run_training(ultra)
