@@ -93,3 +93,6 @@ ENV/
 
 # mac files
 .DS_Store
+
+# artifacts
+/artifacts/
