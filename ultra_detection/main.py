@@ -61,9 +61,12 @@ def run_training(datasets, log_step=10):
       feed_dict = {x: batch[0], y: batch[1]}
 
       if i % log_step == 0:
-        loss_res, dice_res, intercept_res, union_res = sess.run([loss, eval_dice, eval_intercept, eval_union],
+        loss_res, dice_res, intercept_res, union_res, infer_res = sess.run([loss, eval_dice, eval_intercept, eval_union, y_infer],
                                                                 feed_dict=feed_dict)
         print(intercept_res, union_res)
+
+        print(infer_res.reshape(batch_size, 128*128))
+
         print("step %d, loss %g, score %g" % (i, loss_res, dice_res))
         flush_summary(summary_writer, sess, summary_op, i, feed_dict)
 

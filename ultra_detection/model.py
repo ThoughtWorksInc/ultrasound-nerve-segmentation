@@ -97,7 +97,15 @@ def inference(images):
     h_merged16 = tf.concat(3, [h_conv1, h_upconv15])
     h_conv16 = conv([3, 3], 32, h_merged16)
 
-  with tf.name_scope('conv16'):
-    h_conv17 = conv([3, 3], 1, h_conv16)
+  with tf.name_scope('conv17'):
+    weights = tf.Variable(
+      tf.truncated_normal(
+        [1, 1, 32, 1],
+        stddev=1.0 / math.sqrt(128 * 128 * 32)
+      ),
+      name='weights'
+    )
+    biases = tf.Variable(tf.constant(0.01, shape=[1]), name='biases')
+    h_conv17 = tf.nn.sigmoid(tf.nn.conv2d(h_conv16, weights, strides=[1, 1, 1, 1], padding='SAME') + biases)
 
   return h_conv17
