@@ -17,16 +17,16 @@ def create_train_data(input_path, output_dir):
     if f != '.DS_Store' and 'mask' not in f
     ]
 
-  imgs = np.ndarray((len(image_names), 1, image_rows, image_cols), dtype=np.uint8)
-  img_masks = np.ndarray((len(image_names), 1, image_rows, image_cols), dtype=np.uint8)
+  imgs = np.ndarray((len(image_names), image_rows, image_cols, 1), dtype=np.uint8)
+  img_masks = np.ndarray((len(image_names), image_rows, image_cols, 1), dtype=np.uint8)
 
   for i, name in enumerate(image_names):
     if i % 100 == 0:
       print('loaded: %g' % i)
     path = os.path.join(input_path, '%s.tif' % name)
     mask_path = os.path.join(input_path, '%s_mask.tif' % name)
-    imgs[i] = plt.imread(path)
-    img_masks[i] = plt.imread(mask_path)
+    imgs[i] = plt.imread(path).reshape([image_rows, image_cols, 1])
+    img_masks[i] = plt.imread(mask_path).reshape([image_rows, image_cols, 1])
 
   if not os.path.exists(output_dir):
     os.makedirs(output_dir)
@@ -55,18 +55,6 @@ def load_train_data(data_dir, train_size, test_size=None):
     train=DataSet(raw_imgs[train_index], raw_masks[train_index]),
     test=DataSet(raw_imgs[test_index], raw_masks[test_index])
   )
-
-
-def calculate_dice(img_dir):
-  paths = [os.path.join(img_dir, p) for p in os.listdir(img_dir) if p != '.DS_Store' and p.endswith('mask.tif')]
-  num_images = len(paths)
-  print('found %g images' % num_images)
-  total_dice = .0
-  for i in range(num_images):
-    if i % 100 == 0:
-      print('finished %g' % i)
-    total_dice += 0.0000000001 / (np.sum(plt.imread(paths[i]) > 0) + 0.0000000001)
-  print(total_dice / num_images)
 
 
 class DataSet(object):

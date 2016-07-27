@@ -1,35 +1,19 @@
-import math
 import os
 
 import matplotlib.pyplot as plt
 import tensorflow as tf
-import numpy as np
 from ultra_detection import data
+from ultra_detection.data import Datasets, DataSet
+from ultra_detection.model import inference
 
-from ultra_detection.data import read_data_sets
-
-
-def conv2d(x, W):
-  return tf.nn.conv2d(x, W, strides=[1, 1, 1, 1], padding='SAME')
+eps = 1e-12
 
 
-def max_pool_2x2(x):
-  return tf.nn.max_pool(x, ksize=[1, 2, 2, 1],
-                        strides=[1, 2, 2, 1], padding='SAME')
-
-
-def compute_loss(y_, y_conv):
-  eps = 1e-12
-  top = tf.add(tf.reduce_sum(tf.mul(y_, y_conv), reduction_indices=[1]), eps)
-  down = tf.add(tf.add(tf.reduce_sum(y_, reduction_indices=[1]), tf.reduce_sum(y_conv, reduction_indices=[1])), eps)
-  l2_loss = tf.reduce_mean(
-    -tf.div(
-      top,
-      down
-    ),
-    name='dice_loss'
-  )
-  return l2_loss
+def dice_loss(y, y_infer):
+  top = tf.reduce_sum(y * y_infer, reduction_indices=[1, 2, 3])
+  bottom = tf.reduce_sum(y, reduction_indices=[1, 2, 3]) + tf.reduce_sum(y_infer, reduction_indices=[1, 2, 3])
+  loss = tf.reduce_mean(1 - (2 * top + eps) / (bottom + eps), name='dice_loss')
+  return loss
 
 
 def training(loss):
@@ -39,73 +23,28 @@ def training(loss):
   return train_step
 
 
-def inference(x_image):
-  with tf.name_scope('conv1'):
-    # conv 1
-    weights = tf.Variable(tf.truncated_normal([5, 5, 1, 32], stddev=1.0 / math.sqrt(420 * 580 / 2), name='weights'))
-    biases = tf.Variable(tf.constant(0.01, shape=[32], name='biases'))
-
-    # relu + pool
-    h_conv1 = tf.nn.relu(conv2d(x_image, weights) + biases)
-    # h_pool1 = max_pool_2x2(h_conv1)
-  with tf.name_scope('conv2'):
-    # conv 2
-    weights = tf.Variable(
-      tf.truncated_normal([5, 5, 32, 64], stddev=1.0 / math.sqrt(420 * 580 * 32 / 2), name='weights'))
-    biases = tf.Variable(tf.constant(0.01, shape=[64], name='biases'))
-
-    h_conv2 = tf.nn.relu(conv2d(h_conv1, weights) + biases)
-    # h_pool2 = max_pool_2x2(h_conv2)
-  # h_pool2_flat = tf.reshape(h_pool2, [-1, 105 * 145 * 64])
-
-  with tf.name_scope('conv3'):
-    weights = tf.Variable(
-      tf.truncated_normal([5, 5, 64, 64], stddev=1.0 / math.sqrt(420 * 580 * 64 / 2), name='weights'))
-    biases = tf.Variable(tf.constant(0.01, shape=[64], name='biases'))
-
-    h_conv3 = tf.nn.relu(conv2d(h_conv2, weights) + biases)
-
-  with tf.name_scope('mask'):
-    weights = tf.Variable(
-      tf.truncated_normal([5, 5, 64, 1], stddev=1.0 / math.sqrt(420 * 580 * 64 / 2), name='weights'))
-    biases = tf.Variable(tf.constant(0.01, shape=[1], name='biases'))
-
-    h_mask = tf.nn.relu(conv2d(h_conv3, weights) + biases)
-    y_conv = tf.reshape(h_mask, [-1, 420 * 580])
-
-  return y_conv
+def evaluate(y, y_infer):
+  eval_and = tf.logical_and(tf.greater(y, 0), tf.greater(y_infer, 0.5))
+  num_intercept = tf.reduce_sum(tf.to_float(eval_and), reduction_indices=[1, 2, 3])
+  num_union = tf.reduce_sum(y, reduction_indices=[1, 2, 3]) + \
+              tf.reduce_sum(tf.round(y_infer), reduction_indices=[1, 2, 3])
+  eval_dice = tf.reduce_mean((2 * num_intercept + eps) / (num_union + eps), name='eval_dice')
+  tf.scalar_summary(eval_dice.op.name, eval_dice)
+  return eval_dice, num_intercept, num_union
 
 
-def run_training(datasets):
+def run_training(datasets, log_step=10):
   with tf.Graph().as_default():
     # input layer
-    x = tf.placeholder(tf.float32, shape=[None, 420, 580])
-    y_ = tf.placeholder(tf.float32, shape=[None, 420 * 580])
+    x = tf.placeholder(tf.float32, shape=[None, 128, 128, 1])
+    y = tf.placeholder(tf.float32, shape=[None, 128, 128, 1])
 
-    # dropout prob
-    keep_prob = tf.placeholder(tf.float32)
-
-    # reshape
-    x_image = tf.reshape(x, [-1, 420, 580, 1])
-
-    y_conv = inference(x_image)
-
-    # loss
-    cross_entropy = compute_loss(y_, y_conv)
-
-    train_step = training(cross_entropy)
+    y_infer = inference(x)
+    loss = dice_loss(y, y_infer)
+    train_step = training(loss)
+    eval_dice, eval_intercept, eval_union = evaluate(y, y_infer)
 
     summary_op = tf.merge_all_summaries()
-
-    eval_and = tf.logical_and(tf.greater(y_, 0), tf.greater(y_conv, 0.5))
-    eval_or = tf.logical_or(tf.greater(y_, 0), tf.greater(y_conv, 0.5))
-    eps = 1e-12
-    eval_dice = tf.reduce_mean(
-      tf.div(
-        tf.add(tf.reduce_sum(tf.to_float(eval_and), reduction_indices=[1]), eps),
-        tf.add(tf.reduce_sum(tf.to_float(eval_or), reduction_indices=[1]), eps)
-      )
-    )
 
     # start session
     sess = tf.Session()
@@ -117,32 +56,30 @@ def run_training(datasets):
     sess.run(init)
 
     batch_size = 50
-    for i in range(20):
+    for i in range(100):
       batch = datasets.train.next_batch(batch_size)
-      if i % 1 == 0:
-        loss_res, dice_res, top_res, down_res = sess.run([cross_entropy, eval_dice], feed_dict={
-          x: batch[0], y_: batch[1], keep_prob: 1.0})
+      feed_dict = {x: batch[0], y: batch[1]}
 
+      if i % log_step == 0:
+        loss_res, dice_res, intercept_res, union_res = sess.run([loss, eval_dice, eval_intercept, eval_union],
+                                                                feed_dict=feed_dict)
+        print(intercept_res, union_res)
         print("step %d, loss %g, score %g" % (i, loss_res, dice_res))
+        flush_summary(summary_writer, sess, summary_op, i, feed_dict)
 
-        summary_str = sess.run(summary_op, feed_dict={
-          x: batch[0], y_: batch[1], keep_prob: 1.0})
-        summary_writer.add_summary(summary_str, i)
-        summary_writer.flush()
-
-      sess.run(train_step, feed_dict={x: batch[0], y_: batch[1], keep_prob: 0.5})
+      sess.run(train_step, feed_dict=feed_dict)
 
     # evaluate test rate
     num_test = 0
     test_loss = .0
     total_dice = .0
 
-    num_iter = len(datasets.test.img_paths) // batch_size
+    num_iter = len(datasets.test.images) // batch_size
     for i in range(num_iter):
       batch = datasets.test.next_batch(batch_size)
       num_test += batch_size
-      y_res, batch_test_loss, dice_res = sess.run([y_conv, cross_entropy, eval_dice], feed_dict={
-        x: batch[0], y_: batch[1], keep_prob: 1.0})
+      y_res, batch_test_loss, dice_res = sess.run([y_infer, loss, eval_dice], feed_dict={
+        x: batch[0], y: batch[1]})
       test_loss += batch_test_loss
       total_dice += dice_res
       if not os.path.exists('result'):
@@ -155,6 +92,34 @@ def run_training(datasets):
     print("test total loss %g, overall score %g, test %g" % (test_loss / num_iter, total_dice / num_iter, num_test))
 
 
+def flush_summary(summary_writer, sess, summary_op, i, feed_dict):
+  summary_str = sess.run(summary_op, feed_dict=feed_dict)
+  summary_writer.add_summary(summary_str, i)
+  summary_writer.flush()
+
+
+def preprocess(ultra):
+  with tf.Session():
+    resize_train_images = tf.image.resize_images(ultra.train.images, 128, 128)
+    resize_train_masks = tf.image.resize_images(ultra.train.masks, 128, 128)
+    resize_test_images = tf.image.resize_images(ultra.test.images, 128, 128)
+    resize_test_masks = tf.image.resize_images(ultra.test.masks, 128, 128)
+
+    resize_train_images = tf.cast(resize_train_images, dtype=tf.float32)
+    resize_train_masks = tf.cast(resize_train_masks, dtype=tf.float32)
+    resize_test_images = tf.cast(resize_test_images, dtype=tf.float32)
+    resize_test_masks = tf.cast(resize_test_masks, dtype=tf.float32)
+
+    normal_train_masks = resize_train_masks / 255.0
+    normal_test_masks = resize_test_masks / 255.0
+
+    return Datasets(
+      train=DataSet(images=resize_train_images.eval(),
+                    masks=normal_train_masks.eval()),
+      test=DataSet(images=resize_test_images.eval(),
+                   masks=normal_test_masks.eval())
+    )
+
 
 if __name__ == '__main__':
   data_dir = 'artifacts/data'
@@ -163,6 +128,10 @@ if __name__ == '__main__':
     data.create_train_data('../train', data_dir)
 
   # load data
-  # ultra = read_data_sets('/Users/dtong/code/data/competition/ultrasound-nerve-segmentation/sample', 50, 10)
-  #
-  # run_training(ultra)
+  ultra = data.load_train_data(data_dir, 50, 10)
+
+  processed_datasets = preprocess(ultra)
+  print("train images shape: %s, test images shape: %s"
+        % (processed_datasets.train.images.shape, processed_datasets.test.images.shape))
+
+  run_training(processed_datasets, log_step=10)
