@@ -105,7 +105,7 @@ def inference(images):
       ),
       name='weights'
     )
-    biases = tf.Variable(tf.constant(0.01, shape=[1]), name='biases')
+    biases = tf.Variable(tf.constant(0., shape=[1]), name='biases')
     h_conv17 = tf.nn.sigmoid(tf.nn.conv2d(h_conv16, weights, strides=[1, 1, 1, 1], padding='SAME') + biases)
 
   return h_conv17
