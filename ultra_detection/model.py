@@ -13,11 +13,27 @@ def conv(filter_size, num_filter, images):
     name='weights'
   )
   biases = tf.Variable(tf.constant(0.01, shape=[num_filter]), name='biases')
-  return tf.nn.relu(tf.nn.conv2d(images, weights, strides=[1, 1, 1, 1], padding='SAME') + biases)
+  conv = tf.nn.relu(tf.nn.conv2d(images, weights, strides=[1, 1, 1, 1], padding='SAME') + biases, name='conv_relu')
+  _activation_summary(conv)
+  return conv
 
 
 def pool(images):
   return tf.nn.max_pool(images, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
+
+def _activation_summary(x):
+  """Helper to create summaries for activations.
+
+  Creates a summary that provides a histogram of activations.
+  Creates a summary that measure the sparsity of activations.
+
+  Args:
+    x: Tensor
+  Returns:
+    nothing
+  """
+  tf.histogram_summary(x.op.name + '/activations', x)
+  tf.scalar_summary(x.op.name + '/sparsity', tf.nn.zero_fraction(x))
 
 
 # 420 * 580 => 128 * 128
@@ -106,6 +122,6 @@ def inference(images):
       name='weights'
     )
     biases = tf.Variable(tf.constant(0., shape=[1]), name='biases')
-    h_conv17 = tf.nn.sigmoid(tf.nn.conv2d(h_conv16, weights, strides=[1, 1, 1, 1], padding='SAME') + biases)
-
+    h_conv17 = tf.nn.sigmoid(tf.nn.conv2d(h_conv16, weights, strides=[1, 1, 1, 1], padding='SAME') + biases, name='conv_sigmoid')
+    _activation_summary(h_conv17)
   return h_conv17

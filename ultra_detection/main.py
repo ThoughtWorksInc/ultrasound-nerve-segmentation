@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 
 import matplotlib.pyplot as plt
 import tensorflow as tf
@@ -10,10 +11,11 @@ eps = 1e-12
 
 
 def dice_loss(y, y_infer):
-  top = tf.reduce_sum(y * y_infer, reduction_indices=[1, 2, 3])
-  bottom = tf.reduce_sum(y, reduction_indices=[1, 2, 3]) + tf.reduce_sum(y_infer, reduction_indices=[1, 2, 3])
+  rounded = tf.round(y_infer)
+  top = tf.reduce_sum(y * rounded, reduction_indices=[1, 2, 3])
+  bottom = tf.reduce_sum(y, reduction_indices=[1, 2, 3]) + tf.reduce_sum(rounded, reduction_indices=[1, 2, 3])
   loss = tf.reduce_mean(1 - (2 * top + eps) / (bottom + eps), name='dice_loss')
-  return loss
+  return loss, top, bottom
 
 
 def training(loss):
@@ -33,14 +35,14 @@ def evaluate(y, y_infer):
   return eval_dice, num_intercept, num_union
 
 
-def run_training(datasets, log_step=10):
+def run_training(datasets, log_step=10, logdir='artifacts/logs/'):
   with tf.Graph().as_default():
     # input layer
     x = tf.placeholder(tf.float32, shape=[None, 128, 128, 1])
     y = tf.placeholder(tf.float32, shape=[None, 128, 128, 1])
 
     y_infer = inference(x)
-    loss = dice_loss(y, y_infer)
+    loss, loss_top, loss_bottom = dice_loss(y, y_infer)
     train_step = training(loss)
     eval_dice, eval_intercept, eval_union = evaluate(y, y_infer)
 
@@ -49,7 +51,7 @@ def run_training(datasets, log_step=10):
     # start session
     sess = tf.Session()
 
-    summary_writer = tf.train.SummaryWriter('train_cache', sess.graph)
+    summary_writer = tf.train.SummaryWriter(logdir, sess.graph)
 
     init = tf.initialize_all_variables()
 
@@ -61,11 +63,14 @@ def run_training(datasets, log_step=10):
       feed_dict = {x: batch[0], y: batch[1]}
 
       if i % log_step == 0:
-        loss_res, dice_res, intercept_res, union_res, infer_res = sess.run([loss, eval_dice, eval_intercept, eval_union, y_infer],
-                                                                feed_dict=feed_dict)
+        loss_res, dice_res, intercept_res, union_res, infer_res, loss_top_res, loss_bottom_res = sess.run(
+          [loss, eval_dice, eval_intercept, eval_union, y_infer, loss_top, loss_bottom],
+          feed_dict=feed_dict)
         print(intercept_res, union_res)
 
-        print(infer_res.reshape(batch_size, 128*128))
+        print(loss_top_res, loss_bottom_res)
+
+        print(infer_res.reshape(batch_size, 128 * 128))
 
         print("step %d, loss %g, score %g" % (i, loss_res, dice_res))
         flush_summary(summary_writer, sess, summary_op, i, feed_dict)
@@ -137,4 +142,8 @@ if __name__ == '__main__':
   print("train images shape: %s, test images shape: %s"
         % (processed_datasets.train.images.shape, processed_datasets.test.images.shape))
 
-  run_training(processed_datasets, log_step=10)
+  run_training(
+    processed_datasets,
+    log_step=10,
+    logdir=os.path.join('artifacts/logs/', datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
+  )
