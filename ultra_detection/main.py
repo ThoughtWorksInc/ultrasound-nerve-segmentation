@@ -45,8 +45,8 @@ def run_training(datasets, log_step=10, logdir='artifacts/logs/'):
     train_step = training(loss)
     eval_dice, eval_intercept, eval_union = evaluate(y, y_infer)
 
-    tf.image_summary('train_masks', y_infer, max_images=10)
-    tf.image_summary('real_masks', y, max_images=10)
+    tf.image_summary('train_masks', y_infer, max_images=20)
+    tf.image_summary('real_masks', y, max_images=20)
 
     summary_op = tf.merge_all_summaries()
 
