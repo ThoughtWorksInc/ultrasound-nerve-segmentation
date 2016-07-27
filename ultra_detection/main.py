@@ -20,7 +20,7 @@ def dice_loss(y, y_infer):
 def training(loss):
   tf.scalar_summary(loss.op.name, loss)
   # solver
-  train_step = tf.train.AdamOptimizer(1e-4).minimize(loss)
+  train_step = tf.train.AdamOptimizer(1e-3).minimize(loss)
   return train_step
 
 
@@ -123,13 +123,18 @@ def preprocess(ultra):
     resize_test_images = tf.cast(resize_test_images, dtype=tf.float32)
     resize_test_masks = tf.cast(resize_test_masks, dtype=tf.float32)
 
+    train_mean, train_var = tf.nn.moments(resize_train_images, [0])
+    test_mean, test_var = tf.nn.moments(resize_test_images, [0])
+    normal_train_images = (resize_train_images - train_mean) / (tf.sqrt(train_var + eps))
+    normal_test_images = (resize_test_images - test_mean) / (tf.sqrt(test_var + eps))
+
     normal_train_masks = resize_train_masks / 255.0
     normal_test_masks = resize_test_masks / 255.0
 
     return Datasets(
-      train=DataSet(images=resize_train_images.eval(),
+      train=DataSet(images=normal_train_images.eval(),
                     masks=normal_train_masks.eval()),
-      test=DataSet(images=resize_test_images.eval(),
+      test=DataSet(images=normal_test_images.eval(),
                    masks=normal_test_masks.eval())
     )
 
