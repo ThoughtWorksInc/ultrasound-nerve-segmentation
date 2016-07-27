@@ -7,7 +7,7 @@ from ultra_detection import data
 from ultra_detection.data import Datasets, DataSet
 from ultra_detection.model import inference
 
-eps = 1e-12
+eps = 1e-3
 
 
 def dice_loss(y, y_infer):
