@@ -20,7 +20,7 @@ def dice_loss(y, y_infer):
 def training(loss):
   tf.scalar_summary(loss.op.name, loss)
   # solver
-  train_step = tf.train.AdamOptimizer(1e-3).minimize(loss)
+  train_step = tf.train.AdamOptimizer(1e-2).minimize(loss)
   return train_step
 
 
@@ -34,7 +34,7 @@ def evaluate(y, y_infer):
   return eval_dice, num_intercept, num_union
 
 
-def run_training(datasets, log_step=10, logdir='artifacts/logs/'):
+def run_training(experiment_name, datasets, log_step=10, logdir='artifacts/logs/'):
   with tf.Graph().as_default():
     # input layer
     x = tf.placeholder(tf.float32, shape=[None, 128, 128, 1])
@@ -56,11 +56,13 @@ def run_training(datasets, log_step=10, logdir='artifacts/logs/'):
     if not os.path.exists(logdir):
       os.makedirs(logdir)
 
-    summary_writer = tf.train.SummaryWriter(logdir, sess.graph)
+    summary_writer = tf.train.SummaryWriter(os.path.join(logdir, experiment_name), sess.graph)
 
     init = tf.initialize_all_variables()
 
     sess.run(init)
+
+    saver = tf.train.Saver()
 
     batch_size = 20
     for i in range(500):
@@ -82,27 +84,29 @@ def run_training(datasets, log_step=10, logdir='artifacts/logs/'):
 
       sess.run(train_step, feed_dict=feed_dict)
 
-    # evaluate test rate
-    num_test = 0
-    test_loss = .0
-    total_dice = .0
+    saver.save(sess, os.path.join('artifacts/models/', experiment_name))
 
-    num_iter = len(datasets.test.images) // batch_size
-    for i in range(num_iter):
-      batch = datasets.test.next_batch(batch_size)
-      num_test += batch_size
-      y_res, batch_test_loss, dice_res = sess.run([y_infer, loss, eval_dice], feed_dict={
-        x: batch[0], y: batch[1]})
-      test_loss += batch_test_loss
-      total_dice += dice_res
-      if not os.path.exists('result'):
-        os.makedirs('result')
-
-      for j, prediction, real in zip(range(len(y_res)), y_res, batch[1]):
-        plt.imsave('result/%s_%s_predict.tif' % (i, j), prediction.reshape((420, 580)), cmap='gray', vmin=0, vmax=1)
-        plt.imsave('result/%s_%s_real.tif' % (i, j), real.reshape((420, 580)), cmap='gray')
-
-    print("test total loss %g, overall score %g, test %g" % (test_loss / num_iter, total_dice / num_iter, num_test))
+    # # evaluate test rate
+    # num_test = 0
+    # test_loss = .0
+    # total_dice = .0
+    #
+    # num_iter = len(datasets.test.images) // batch_size
+    # for i in range(num_iter):
+    #   batch = datasets.test.next_batch(batch_size)
+    #   num_test += batch_size
+    #   y_res, batch_test_loss, dice_res = sess.run([y_infer, loss, eval_dice], feed_dict={
+    #     x: batch[0], y: batch[1]})
+    #   test_loss += batch_test_loss
+    #   total_dice += dice_res
+    #   if not os.path.exists('result'):
+    #     os.makedirs('result')
+    #
+    #   for j, prediction, real in zip(range(len(y_res)), y_res, batch[1]):
+    #     plt.imsave('result/%s_%s_predict.tif' % (i, j), prediction.reshape((420, 580)), cmap='gray', vmin=0, vmax=1)
+    #     plt.imsave('result/%s_%s_real.tif' % (i, j), real.reshape((420, 580)), cmap='gray')
+    #
+    # print("test total loss %g, overall score %g, test %g" % (test_loss / num_iter, total_dice / num_iter, num_test))
 
 
 def flush_summary(summary_writer, sess, summary_op, i, feed_dict):
@@ -152,8 +156,10 @@ if __name__ == '__main__':
   print("train images shape: %s, test images shape: %s"
         % (processed_datasets.train.images.shape, processed_datasets.test.images.shape))
 
+  experiment_name = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
   run_training(
+    experiment_name,
     processed_datasets,
     log_step=10,
-    logdir=os.path.join('artifacts/logs/', datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
+    logdir='artifacts/logs/',
   )
