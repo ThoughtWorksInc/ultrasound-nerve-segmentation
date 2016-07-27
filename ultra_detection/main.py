@@ -11,9 +11,8 @@ eps = 1e-12
 
 
 def dice_loss(y, y_infer):
-  rounded = tf.round(y_infer)
-  top = tf.reduce_sum(y * rounded, reduction_indices=[1, 2, 3])
-  bottom = tf.reduce_sum(y, reduction_indices=[1, 2, 3]) + tf.reduce_sum(rounded, reduction_indices=[1, 2, 3])
+  top = tf.reduce_sum(y * y_infer, reduction_indices=[1, 2, 3])
+  bottom = tf.reduce_sum(y, reduction_indices=[1, 2, 3]) + tf.reduce_sum(y_infer, reduction_indices=[1, 2, 3])
   loss = tf.reduce_mean(1 - (2 * top + eps) / (bottom + eps), name='dice_loss')
   return loss, top, bottom
 
@@ -46,10 +45,16 @@ def run_training(datasets, log_step=10, logdir='artifacts/logs/'):
     train_step = training(loss)
     eval_dice, eval_intercept, eval_union = evaluate(y, y_infer)
 
+    tf.image_summary('train_masks', y_infer, max_images=10)
+    tf.image_summary('real_masks', y, max_images=10)
+
     summary_op = tf.merge_all_summaries()
 
     # start session
     sess = tf.Session()
+
+    if not os.path.exists(logdir):
+      os.makedirs(logdir)
 
     summary_writer = tf.train.SummaryWriter(logdir, sess.graph)
 
@@ -57,8 +62,8 @@ def run_training(datasets, log_step=10, logdir='artifacts/logs/'):
 
     sess.run(init)
 
-    batch_size = 50
-    for i in range(100):
+    batch_size = 20
+    for i in range(500):
       batch = datasets.train.next_batch(batch_size)
       feed_dict = {x: batch[0], y: batch[1]}
 
@@ -136,7 +141,7 @@ if __name__ == '__main__':
     data.create_train_data('../train', data_dir)
 
   # load data
-  ultra = data.load_train_data(data_dir, 50, 10)
+  ultra = data.load_train_data(data_dir, 20, 10)
 
   processed_datasets = preprocess(ultra)
   print("train images shape: %s, test images shape: %s"
