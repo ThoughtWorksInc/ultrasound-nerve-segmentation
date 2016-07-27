@@ -1,7 +1,7 @@
 import os
 from datetime import datetime
 
-import matplotlib.pyplot as plt
+import numpy as np
 import tensorflow as tf
 from ultra_detection import data
 from ultra_detection.data import Datasets, DataSet
@@ -35,7 +35,7 @@ def evaluate(y, y_infer):
 
 
 def run_training(experiment_name, datasets, log_step=10, logdir='artifacts/logs/'):
-  with tf.Graph().as_default():
+  with tf.Graph().as_default(), tf.Session() as sess:
     # input layer
     x = tf.placeholder(tf.float32, shape=[None, 128, 128, 1])
     y = tf.placeholder(tf.float32, shape=[None, 128, 128, 1])
@@ -49,9 +49,6 @@ def run_training(experiment_name, datasets, log_step=10, logdir='artifacts/logs/
     tf.image_summary('real_masks', y, max_images=20)
 
     summary_op = tf.merge_all_summaries()
-
-    # start session
-    sess = tf.Session()
 
     if not os.path.exists(logdir):
       os.makedirs(logdir)
@@ -143,6 +140,33 @@ def preprocess(ultra):
     )
 
 
+def run_testing(experiment_name, processed_datasets):
+  with tf.Session() as sess:
+    # real layer
+    x = tf.placeholder(tf.float32, shape=[None, 128, 128, 1])
+
+    y_infer = inference(x, is_training=False)
+
+    saver = tf.train.Saver()
+    saver.restore(sess, os.path.join('artifacts/models', experiment_name))
+
+    batch_size = 10
+    num_iters = len(processed_datasets.test.images) // batch_size
+    num_tested = 0
+    total_dice_coef = 0.
+    for i in range(num_iters):
+      batch = processed_datasets.test.next_batch(batch_size)
+      infer_result = sess.run(y_infer, feed_dict={x: batch[0]})
+      predict = (infer_result > 0.5).astype(np.float32)
+      real = batch[1]
+
+      total_dice_coef += np.sum((2 * np.sum(real * predict, axis=(1, 2, 3)) + eps) / (
+        np.sum(real, axis=(1, 2, 3)) + np.sum(predict, axis=(1, 2, 3)) + eps))
+
+      num_tested += batch_size
+
+    print('%g tested, average dice coef: %g' % (num_tested, total_dice_coef // num_tested))
+
 if __name__ == '__main__':
   data_dir = 'artifacts/data'
 
@@ -163,3 +187,5 @@ if __name__ == '__main__':
     log_step=10,
     logdir='artifacts/logs/',
   )
+
+  run_testing(experiment_name, processed_datasets)
