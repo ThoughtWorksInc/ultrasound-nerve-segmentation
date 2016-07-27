@@ -39,10 +39,13 @@ def _activation_summary(x):
 # 420 * 580 => 128 * 128
 
 def inference(images):
-  with tf.name_scope('conv1'):
-    h_conv1 = conv([3, 3], 32, images)
+  with tf.name_scope('conv1-1'):
+    h_conv1_1 = conv([3, 3], 32, images)
+
+  with tf.name_scope('conv1-2'):
+    h_conv1_2 = conv([3, 3], 32, h_conv1_1)
     # 64 * 64
-    h_pool1 = pool(h_conv1)
+    h_pool1 = pool(h_conv1_2)
 
   with tf.name_scope('conv2'):
     h_conv2 = conv([3, 3], 64, h_pool1)
@@ -110,10 +113,14 @@ def inference(images):
     h_upconv15 = conv([3, 3], 32, h_upsamp15)
 
   with tf.name_scope('merge_conv16'):
-    h_merged16 = tf.concat(3, [h_conv1, h_upconv15])
+    h_merged16 = tf.concat(3, [h_conv1_2, h_upconv15])
     h_conv16 = conv([3, 3], 32, h_merged16)
 
   with tf.name_scope('conv17'):
+    # 32 * 32
+    h_upconv17 = conv([3, 3], 32, h_conv16)
+
+  with tf.name_scope('conv18'):
     weights = tf.Variable(
       tf.truncated_normal(
         [1, 1, 32, 1],
@@ -122,6 +129,5 @@ def inference(images):
       name='weights'
     )
     biases = tf.Variable(tf.constant(0., shape=[1]), name='biases')
-    h_conv17 = tf.nn.sigmoid(tf.nn.conv2d(h_conv16, weights, strides=[1, 1, 1, 1], padding='SAME') + biases, name='conv_sigmoid')
-    _activation_summary(h_conv17)
-  return h_conv17
+    h_conv18 = tf.nn.sigmoid(tf.nn.conv2d(h_upconv17, weights, strides=[1, 1, 1, 1], padding='SAME') + biases, name='conv_sigmoid')
+  return h_conv18
