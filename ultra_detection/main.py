@@ -147,7 +147,7 @@ def run_testing(experiment_name, processed_datasets):
     saver = tf.train.Saver()
     saver.restore(sess, os.path.join('artifacts/models', experiment_name, 'model.ckpt'))
 
-    batch_size = 10
+    batch_size = 100
     num_iters = len(processed_datasets.test.images) // batch_size
     num_tested = 0
     total_dice_coef = 0.
