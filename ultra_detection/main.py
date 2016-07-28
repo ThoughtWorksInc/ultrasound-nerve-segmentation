@@ -45,6 +45,10 @@ def run_training(experiment_name,
                  batch_size=20,
                  check_step=100):
   model_dir = os.path.join('artifacts/models/', experiment_name)
+
+  if not os.path.exists(model_dir):
+    os.makedirs(model_dir)
+
   with tf.Graph().as_default(), tf.Session() as sess:
     # input layer
     x = tf.placeholder(tf.float32, shape=[None, 128, 128, 1])
@@ -76,7 +80,7 @@ def run_training(experiment_name,
       batch = datasets.train.next_batch(batch_size)
       feed_dict = {x: batch[0], y: batch[1]}
 
-      if i % log_step == 0:
+      if i % log_step == 0 or i == num_iters - 1:
         loss_res, dice_res, intercept_res, union_res, infer_res = sess.run(
           [loss, eval_dice, eval_intercept, eval_union, y_infer],
           feed_dict=feed_dict)
@@ -89,13 +93,10 @@ def run_training(experiment_name,
         print("step %d, loss %g, score %g" % (i, loss_res, dice_res))
         flush_summary(summary_writer, sess, summary_op, i, feed_dict)
 
-      if i % check_step == 0:
+      if i % check_step == 0 or i == num_iters - 1:
         saver.save(sess, os.path.join(model_dir, 'model-%g.ckpt' % i))
 
       sess.run(train_step, feed_dict=feed_dict)
-
-    if not os.path.exists(model_dir):
-      os.makedirs(model_dir)
 
     saver.save(sess, os.path.join(model_dir, 'model.ckpt'))
 
