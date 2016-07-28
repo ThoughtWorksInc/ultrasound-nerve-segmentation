@@ -7,14 +7,17 @@ from ultra_detection import data
 from ultra_detection.data import Datasets, DataSet
 from ultra_detection.model import inference
 
-eps = 1e-3
-
 
 def dice_loss(y, y_infer):
+  eps = 1
   top = tf.reduce_sum(y * y_infer, reduction_indices=[1, 2, 3])
   bottom = tf.reduce_sum(y, reduction_indices=[1, 2, 3]) + tf.reduce_sum(y_infer, reduction_indices=[1, 2, 3])
   loss = tf.reduce_mean(1 - (2 * top + eps) / (bottom + eps), name='dice_loss')
   return loss, top, bottom
+
+
+def l2_loss(y, y_infer):
+  return tf.nn.l2_loss(y_infer - y)
 
 
 def training(loss):
@@ -25,6 +28,7 @@ def training(loss):
 
 
 def evaluate(y, y_infer):
+  eps = 1e-3
   eval_and = tf.logical_and(tf.greater(y, 0), tf.greater(y_infer, 0.5))
   num_intercept = tf.reduce_sum(tf.to_float(eval_and), reduction_indices=[1, 2, 3])
   num_union = tf.reduce_sum(y, reduction_indices=[1, 2, 3]) + \
@@ -41,7 +45,8 @@ def run_training(experiment_name, datasets, log_step=10, logdir='artifacts/logs/
     y = tf.placeholder(tf.float32, shape=[None, 128, 128, 1])
 
     y_infer = inference(x)
-    loss, loss_top, loss_bottom = dice_loss(y, y_infer)
+    # loss, loss_top, loss_bottom = dice_loss(y, y_infer)
+    loss = l2_loss(y, y_infer)
     train_step = training(loss)
     eval_dice, eval_intercept, eval_union = evaluate(y, y_infer)
 
@@ -66,12 +71,12 @@ def run_training(experiment_name, datasets, log_step=10, logdir='artifacts/logs/
       feed_dict = {x: batch[0], y: batch[1]}
 
       if i % log_step == 0:
-        loss_res, dice_res, intercept_res, union_res, infer_res, loss_top_res, loss_bottom_res = sess.run(
-          [loss, eval_dice, eval_intercept, eval_union, y_infer, loss_top, loss_bottom],
+        loss_res, dice_res, intercept_res, union_res, infer_res = sess.run(
+          [loss, eval_dice, eval_intercept, eval_union, y_infer],
           feed_dict=feed_dict)
         print(intercept_res, union_res)
 
-        print(loss_top_res, loss_bottom_res)
+        # print(loss_top_res, loss_bottom_res)
 
         print(infer_res.reshape(batch_size, 128 * 128))
 
@@ -94,6 +99,7 @@ def flush_summary(summary_writer, sess, summary_op, i, feed_dict):
 
 
 def preprocess(ultra):
+  eps = 1e-3
   with tf.Session():
     resize_train_images = tf.image.resize_images(ultra.train.images, 128, 128)
     resize_train_masks = tf.image.resize_images(ultra.train.masks, 128, 128)
@@ -122,6 +128,7 @@ def preprocess(ultra):
 
 
 def run_testing(experiment_name, processed_datasets):
+  eps = 1e-3
   with tf.Session() as sess:
     # real layer
     x = tf.placeholder(tf.float32, shape=[None, 128, 128, 1])

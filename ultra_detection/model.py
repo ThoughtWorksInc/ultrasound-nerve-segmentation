@@ -134,6 +134,6 @@ def inference(images, is_training=True):
       name='weights'
     )
     biases = tf.Variable(tf.constant(0., shape=[1]), name='biases')
-    h_conv18 = tf.nn.sigmoid(tf.nn.conv2d(h_upconv17, weights, strides=[1, 1, 1, 1], padding='SAME') + biases,
-                             name='conv_sigmoid')
+    conv_res = tf.nn.conv2d(h_upconv17, weights, strides=[1, 1, 1, 1], padding='SAME') + biases
+    h_conv18 = tf.nn.sigmoid(conv_res, name='conv_sigmoid')
   return h_conv18
