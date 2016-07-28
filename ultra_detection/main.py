@@ -38,7 +38,13 @@ def evaluate(y, y_infer):
   return eval_dice, num_intercept, num_union
 
 
-def run_training(experiment_name, datasets, log_step=10, logdir='artifacts/logs/', num_iters=500, batch_size=20):
+def run_training(experiment_name,
+                 datasets, log_step=10,
+                 logdir='artifacts/logs/',
+                 num_iters=500,
+                 batch_size=20,
+                 check_step=100):
+  model_dir = os.path.join('artifacts/models/', experiment_name)
   with tf.Graph().as_default(), tf.Session() as sess:
     # input layer
     x = tf.placeholder(tf.float32, shape=[None, 128, 128, 1])
@@ -83,9 +89,11 @@ def run_training(experiment_name, datasets, log_step=10, logdir='artifacts/logs/
         print("step %d, loss %g, score %g" % (i, loss_res, dice_res))
         flush_summary(summary_writer, sess, summary_op, i, feed_dict)
 
+      if i % check_step == 0:
+        saver.save(sess, os.path.join(model_dir, 'model-%g.ckpt' % i))
+
       sess.run(train_step, feed_dict=feed_dict)
 
-    model_dir = os.path.join('artifacts/models/', experiment_name)
     if not os.path.exists(model_dir):
       os.makedirs(model_dir)
 
@@ -176,7 +184,8 @@ if __name__ == '__main__':
     log_step=10,
     logdir='artifacts/logs/',
     num_iters=100,
-    batch_size=20
+    batch_size=20,
+    check_step=100
   )
 
   run_testing(experiment_name, processed_datasets)
