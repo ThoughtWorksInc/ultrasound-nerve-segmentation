@@ -168,7 +168,7 @@ if __name__ == '__main__':
     processed_datasets,
     log_step=10,
     logdir='artifacts/logs/',
-    num_iters=1,
+    num_iters=100,
     batch_size=20
   )
 
