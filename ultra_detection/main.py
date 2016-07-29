@@ -59,6 +59,7 @@ def run_training(experiment_name,
     loss = l2_loss(y, y_infer)
     train_step = training(loss)
     eval_dice, eval_intercept, eval_union = evaluate(y, y_infer)
+    update_bn_params = tf.group(tf.get_collection(tf.GraphKeys.UPDATE_OPS))
 
     tf.image_summary('train_masks', y_infer, max_images=20)
     tf.image_summary('real_masks', y, max_images=20)
@@ -96,7 +97,7 @@ def run_training(experiment_name,
       if i % check_step == 0 or i == num_iters - 1:
         saver.save(sess, os.path.join(model_dir, 'model-%g.ckpt' % i))
 
-      sess.run(train_step, feed_dict=feed_dict)
+      sess.run([train_step, update_bn_params], feed_dict=feed_dict)
 
     saver.save(sess, os.path.join(model_dir, 'model.ckpt'))
 
@@ -125,8 +126,9 @@ def preprocess(ultra):
   with tf.Session():
     for i in range(num_train_iter):
       images = ultra.train.images[i * batch_size: (i + 1) * batch_size]
+      masks = ultra.train.masks[i * batch_size: (i + 1) * batch_size]
       resize_train_images = tf.image.resize_images(images, 128, 128)
-      resize_train_masks = tf.image.resize_images(images, 128, 128)
+      resize_train_masks = tf.image.resize_images(masks, 128, 128)
 
       resize_train_images = tf.cast(resize_train_images, dtype=tf.float32)
       resize_train_masks = tf.cast(resize_train_masks, dtype=tf.float32)
@@ -141,8 +143,9 @@ def preprocess(ultra):
 
     for i in range(num_test_iter):
       images = ultra.test.images[i * batch_size: (i + 1) * batch_size]
-      resize_test_images = tf.image.resize_images(ultra.test.images, 128, 128)
-      resize_test_masks = tf.image.resize_images(ultra.test.masks, 128, 128)
+      masks = ultra.test.masks[i * batch_size: (i + 1) * batch_size]
+      resize_test_images = tf.image.resize_images(images, 128, 128)
+      resize_test_masks = tf.image.resize_images(masks, 128, 128)
 
       resize_test_images = tf.cast(resize_test_images, dtype=tf.float32)
       resize_test_masks = tf.cast(resize_test_masks, dtype=tf.float32)
@@ -157,7 +160,7 @@ def preprocess(ultra):
 
     return Datasets(
       train=DataSet(images=processed_train_images, masks=processed_train_masks),
-      test=DataSet(images=processed_test_images, masks=processed_test_images)
+      test=DataSet(images=processed_test_images, masks=processed_test_masks)
     )
 
 
@@ -167,7 +170,7 @@ def run_testing(experiment_name, processed_datasets):
     # real layer
     x = tf.placeholder(tf.float32, shape=[None, 128, 128, 1])
 
-    y_infer = inference(x, is_training=True)
+    y_infer = inference(x, is_training=False)
 
     saver = tf.train.Saver()
     saver.restore(sess, os.path.join('artifacts/models', experiment_name, 'model-999.ckpt'))

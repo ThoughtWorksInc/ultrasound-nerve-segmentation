@@ -26,7 +26,7 @@ def compute_test(experiment_name, model_num, names, processed_data):
     # real layer
     x = tf.placeholder(tf.float32, shape=[None, 128, 128, 1])
 
-    y_infer = model.inference(x, is_training=True)
+    y_infer = model.inference(x, is_training=False)
 
     expanded_images = tf.image.resize_images(y_infer, 420, 580)
 
@@ -40,7 +40,7 @@ def compute_test(experiment_name, model_num, names, processed_data):
       batch = processed_data[i * batch_size: (i + 1) * batch_size]
       images_result = sess.run(expanded_images, feed_dict={x: batch})
 
-      result = images_result > 0.5
+      result = images_result > 0.7
 
       result_dir = 'artifacts/results/%s-%s/' % (experiment_name, model_num)
       if not os.path.exists(result_dir):
@@ -51,7 +51,7 @@ def compute_test(experiment_name, model_num, names, processed_data):
       result = result.reshape(num_result, 420, 580)
 
       for j in range(num_result):
-        image_index = i * batch_size + j + 1
+        image_index = i * batch_size + j
         plt.imsave(os.path.join(result_dir, '%s_mask.tif' % names[image_index]), result[j], cmap='gray', vmin=0, vmax=1)
         generate_rle(result[j])
 
