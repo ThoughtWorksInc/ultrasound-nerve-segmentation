@@ -35,6 +35,26 @@ def create_train_data(input_path, output_dir):
   np.save(os.path.join(output_dir, 'masks.npy'), img_masks)
 
 
+def create_test_data(input_path, output_dir):
+  image_names = [
+    os.path.splitext(f)[0]
+    for f in os.listdir(input_path)
+    if f != '.DS_Store' and 'mask' not in f
+    ]
+  imgs = np.ndarray((len(image_names), image_rows, image_cols, 1), dtype=np.uint8)
+
+  for i, name in enumerate(image_names):
+    if i % 100 == 0:
+      print('loaded: %g' % i)
+    path = os.path.join(input_path, '%s.tif' % name)
+    imgs[i] = plt.imread(path).reshape([image_rows, image_cols, 1])
+
+  if not os.path.exists(output_dir):
+    os.makedirs(output_dir)
+
+  np.save(os.path.join(output_dir, 'images.npy'), imgs)
+  np.save(os.path.join(output_dir, 'names.npy'), image_names)
+
 def load_train_data(data_dir, train_size, test_size=None):
   raw_imgs = np.load(os.path.join(data_dir, 'images.npy'))
   raw_masks = np.load(os.path.join(data_dir, 'masks.npy'))
@@ -55,6 +75,11 @@ def load_train_data(data_dir, train_size, test_size=None):
     train=DataSet(raw_imgs[train_index], raw_masks[train_index]),
     test=DataSet(raw_imgs[test_index], raw_masks[test_index])
   )
+
+
+def load_test_data(data_dir):
+  return np.load(os.path.join(data_dir, 'names.npy')), np.load(os.path.join(data_dir, 'images.npy'))
+
 
 
 class DataSet(object):
