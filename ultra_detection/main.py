@@ -109,30 +109,55 @@ def flush_summary(summary_writer, sess, summary_op, i, feed_dict):
 
 def preprocess(ultra):
   eps = 1e-3
+  num_train_images = ultra.train.images.shape[0]
+  num_test_images = ultra.test.images.shape[0]
+
+  batch_size = 1000
+
+  num_train_iter = num_train_images // batch_size + 1
+  num_test_iter = num_test_images // batch_size + 1
+
+  processed_train_images = np.ndarray((num_train_images, 128, 128, 1))
+  processed_train_masks = np.ndarray((num_train_images, 128, 128, 1))
+  processed_test_images = np.ndarray((num_train_images, 128, 128, 1))
+  processed_test_masks = np.ndarray((num_train_images, 128, 128, 1))
+
   with tf.Session():
-    resize_train_images = tf.image.resize_images(ultra.train.images, 128, 128)
-    resize_train_masks = tf.image.resize_images(ultra.train.masks, 128, 128)
-    resize_test_images = tf.image.resize_images(ultra.test.images, 128, 128)
-    resize_test_masks = tf.image.resize_images(ultra.test.masks, 128, 128)
+    for i in range(num_train_iter):
+      images = ultra.train.images[i * batch_size: (i + 1) * batch_size]
+      resize_train_images = tf.image.resize_images(images, 128, 128)
+      resize_train_masks = tf.image.resize_images(images, 128, 128)
 
-    resize_train_images = tf.cast(resize_train_images, dtype=tf.float32)
-    resize_train_masks = tf.cast(resize_train_masks, dtype=tf.float32)
-    resize_test_images = tf.cast(resize_test_images, dtype=tf.float32)
-    resize_test_masks = tf.cast(resize_test_masks, dtype=tf.float32)
+      resize_train_images = tf.cast(resize_train_images, dtype=tf.float32)
+      resize_train_masks = tf.cast(resize_train_masks, dtype=tf.float32)
 
-    train_mean, train_var = tf.nn.moments(resize_train_images, [0])
-    test_mean, test_var = tf.nn.moments(resize_test_images, [0])
-    normal_train_images = (resize_train_images - train_mean) / (tf.sqrt(train_var + eps))
-    normal_test_images = (resize_test_images - test_mean) / (tf.sqrt(test_var + eps))
+      train_mean, train_var = tf.nn.moments(resize_train_images, [0])
+      normal_train_images = (resize_train_images - train_mean) / (tf.sqrt(train_var + eps))
 
-    normal_train_masks = resize_train_masks / 255.0
-    normal_test_masks = resize_test_masks / 255.0
+      normal_train_masks = resize_train_masks / 255.0
+
+      processed_train_images[i * batch_size: i * batch_size + images.shape[0]] = normal_train_images.eval()
+      processed_train_masks[i * batch_size: i * batch_size + images.shape[0]] = normal_train_masks.eval()
+
+    for i in range(num_test_iter):
+      images = ultra.test.images[i * batch_size: (i + 1) * batch_size]
+      resize_test_images = tf.image.resize_images(ultra.test.images, 128, 128)
+      resize_test_masks = tf.image.resize_images(ultra.test.masks, 128, 128)
+
+      resize_test_images = tf.cast(resize_test_images, dtype=tf.float32)
+      resize_test_masks = tf.cast(resize_test_masks, dtype=tf.float32)
+
+      test_mean, test_var = tf.nn.moments(resize_test_images, [0])
+      normal_test_images = (resize_test_images - test_mean) / (tf.sqrt(test_var + eps))
+
+      normal_test_masks = resize_test_masks / 255.0
+
+      processed_test_images[i * batch_size: i * batch_size + images.shape[0]] = normal_test_images.eval()
+      processed_test_masks[i * batch_size: i * batch_size + images.shape[0]] = normal_test_masks.eval()
 
     return Datasets(
-      train=DataSet(images=normal_train_images.eval(),
-                    masks=normal_train_masks.eval()),
-      test=DataSet(images=normal_test_images.eval(),
-                   masks=normal_test_masks.eval())
+      train=DataSet(images=processed_train_images, masks=processed_train_masks),
+      test=DataSet(images=processed_test_images, masks=processed_test_images)
     )
 
 
