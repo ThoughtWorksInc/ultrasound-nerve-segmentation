@@ -16,7 +16,7 @@ def conv(filter_size, num_filter, images, is_training=True):
   )
   biases = tf.Variable(tf.constant(0.01, shape=[num_filter]), name='biases')
   conv = tf.nn.conv2d(images, weights, strides=[1, 1, 1, 1], padding='SAME') + biases
-  h_norm = batch_norm(conv, center=True, scale=True, is_training=is_training, scope=conv.op.name)
+  h_norm = batch_norm(conv, center=True, scale=True, is_training=is_training, scope=conv.op.name, updates_collections=None)
   relu = tf.nn.elu(h_norm, name='conv_relu')
   _activation_summary(relu)
   return relu

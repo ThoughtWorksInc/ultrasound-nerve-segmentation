@@ -59,7 +59,6 @@ def run_training(experiment_name,
     loss = l2_loss(y, y_infer)
     train_step = training(loss)
     eval_dice, eval_intercept, eval_union = evaluate(y, y_infer)
-    update_bn_params = tf.group(tf.get_collection(tf.GraphKeys.UPDATE_OPS))
 
     tf.image_summary('train_masks', y_infer, max_images=20)
     tf.image_summary('real_masks', y, max_images=20)
@@ -97,7 +96,7 @@ def run_training(experiment_name,
       if i % check_step == 0 or i == num_iters - 1:
         saver.save(sess, os.path.join(model_dir, 'model-%g.ckpt' % i))
 
-      sess.run([train_step, update_bn_params], feed_dict=feed_dict)
+      sess.run(train_step, feed_dict=feed_dict)
 
     saver.save(sess, os.path.join(model_dir, 'model.ckpt'))
 
