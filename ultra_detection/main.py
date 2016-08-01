@@ -27,15 +27,15 @@ def training(loss):
   return train_step
 
 
-def evaluate(y, y_infer):
+def evaluate(y, y_infer, threshold):
   eps = 1e-3
-  eval_and = tf.logical_and(tf.greater(y, 0), tf.greater(y_infer, 0.5))
+  eval_and = tf.logical_and(tf.greater(y, 0), tf.greater(y_infer, threshold))
   num_intercept = tf.reduce_sum(tf.to_float(eval_and), reduction_indices=[1, 2, 3])
   num_union = tf.reduce_sum(y, reduction_indices=[1, 2, 3]) + \
               tf.reduce_sum(tf.round(y_infer), reduction_indices=[1, 2, 3])
   eval_dice = tf.reduce_mean((2 * num_intercept + eps) / (num_union + eps), name='eval_dice')
   tf.scalar_summary(eval_dice.op.name, eval_dice)
-  return eval_dice, num_intercept, num_union
+  return eval_dice
 
 
 def run_training(experiment_name,
@@ -58,7 +58,10 @@ def run_training(experiment_name,
     # loss, loss_top, loss_bottom = dice_loss(y, y_infer)
     loss = l2_loss(y, y_infer)
     train_step = training(loss)
-    eval_dice, eval_intercept, eval_union = evaluate(y, y_infer)
+    eval_dice_0_5 = evaluate(y, y_infer, 0.5)
+    eval_dice_0_6 = evaluate(y, y_infer, 0.6)
+    eval_dice_0_7 = evaluate(y, y_infer, 0.7)
+    eval_dice_0_8 = evaluate(y, y_infer, 0.8)
 
     tf.image_summary('train_masks', y_infer, max_images=20)
     tf.image_summary('real_masks', y, max_images=20)
@@ -81,17 +84,34 @@ def run_training(experiment_name,
       feed_dict = {x: batch[0], y: batch[1]}
 
       if i % log_step == 0 or i == num_iters - 1:
-        loss_res, dice_res, intercept_res, union_res, infer_res = sess.run(
-          [loss, eval_dice, eval_intercept, eval_union, y_infer],
-          feed_dict=feed_dict)
-        print(intercept_res, union_res)
-
-        # print(loss_top_res, loss_bottom_res)
-
-        print(infer_res.reshape(batch_size, 128 * 128))
-
-        print("step %d, loss %g, score %g" % (i, loss_res, dice_res))
         flush_summary(summary_writer, sess, summary_op, i, feed_dict)
+
+        loss_res, dice_0_5_res, dice_0_6_res, dice_0_7_res, dice_0_8_res, infer_res = sess.run(
+          [loss, eval_dice_0_5, eval_dice_0_6, eval_dice_0_7, eval_dice_0_8, y_infer],
+          feed_dict=feed_dict)
+
+        num_val_iter = len(datasets.test.images) // batch_size
+        total_dice_0_5 = .0
+        total_dice_0_6 = .0
+        total_dice_0_7 = .0
+        total_dice_0_8 = .0
+        for j in range(num_val_iter):
+          test_batch = datasets.test.next_batch(batch_size)
+          test_batch_dice_0_5, test_batch_dice_0_6, test_batch_dice_0_7, test_batch_dice_0_8 = sess.run(
+            [eval_dice_0_5, eval_dice_0_6, eval_dice_0_7, eval_dice_0_8],
+            feed_dict={x: test_batch[0], y: test_batch[1]}
+          )
+          total_dice_0_5 += test_batch_dice_0_5
+          total_dice_0_6 += test_batch_dice_0_6
+          total_dice_0_7 += test_batch_dice_0_7
+          total_dice_0_8 += test_batch_dice_0_8
+        total_dice_0_5 /= num_val_iter
+        total_dice_0_6 /= num_val_iter
+        total_dice_0_7 /= num_val_iter
+        total_dice_0_8 /= num_val_iter
+
+        print("step %d, loss %g, 0.5 score %g, 0.5 validation dice: %g, 0.6 validation dice: %g, 0.7 validation dice: %g, 0.8 validation dice: %g" %
+              (i, loss_res, dice_0_5_res, total_dice_0_5, total_dice_0_6, total_dice_0_7, total_dice_0_8))
 
       if i % check_step == 0 or i == num_iters - 1:
         saver.save(sess, os.path.join(model_dir, 'model-%g.ckpt' % i))
@@ -215,5 +235,3 @@ if __name__ == '__main__':
     batch_size=20,
     check_step=100
   )
-
-  run_testing(experiment_name, processed_datasets)
