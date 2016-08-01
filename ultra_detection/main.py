@@ -143,8 +143,8 @@ def preprocess(ultra):
 
   processed_train_images = np.ndarray((num_train_images, 128, 128, 1))
   processed_train_masks = np.ndarray((num_train_images, 128, 128, 1))
-  processed_test_images = np.ndarray((num_train_images, 128, 128, 1))
-  processed_test_masks = np.ndarray((num_train_images, 128, 128, 1))
+  processed_test_images = np.ndarray((num_test_images, 128, 128, 1))
+  processed_test_masks = np.ndarray((num_test_images, 128, 128, 1))
 
   with tf.Session():
     for i in range(num_train_iter):
