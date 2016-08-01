@@ -13,7 +13,7 @@ def dice_loss(y, y_infer):
   top = tf.reduce_sum(y * y_infer, reduction_indices=[1, 2, 3])
   bottom = tf.reduce_sum(y, reduction_indices=[1, 2, 3]) + tf.reduce_sum(y_infer, reduction_indices=[1, 2, 3])
   loss = tf.reduce_mean(1 - (2 * top + eps) / (bottom + eps), name='dice_loss')
-  return loss, top, bottom
+  return loss
 
 
 def l2_loss(y, y_infer):
@@ -55,9 +55,10 @@ def run_training(experiment_name,
     y = tf.placeholder(tf.float32, shape=[None, 128, 128, 1])
 
     y_infer = inference(x)
-    # loss, loss_top, loss_bottom = dice_loss(y, y_infer)
+    d_loss = dice_loss(y, y_infer)
     loss = l2_loss(y, y_infer)
     train_step = training(loss)
+    train_step_dice = training(d_loss)
     eval_dice_0_5 = evaluate(y, y_infer, 0.5)
     eval_dice_0_6 = evaluate(y, y_infer, 0.6)
     eval_dice_0_7 = evaluate(y, y_infer, 0.7)
@@ -116,7 +117,10 @@ def run_training(experiment_name,
       if i % check_step == 0 or i == num_iters - 1:
         saver.save(sess, os.path.join(model_dir, 'model-%g.ckpt' % i))
 
-      sess.run(train_step, feed_dict=feed_dict)
+      if i < 300:
+        sess.run(train_step, feed_dict=feed_dict)
+      else:
+        sess.run(train_step_dice, feed_dict=feed_dict)
 
     saver.save(sess, os.path.join(model_dir, 'model.ckpt'))
 

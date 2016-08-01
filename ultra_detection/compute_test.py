@@ -21,12 +21,12 @@ def generate_rle(image):
 
 
 
-def compute_test(experiment_name, model_num, names, processed_data):
+def compute_test(experiment_name, model_num, names, processed_data, threshold=0.75):
   with tf.Session() as sess:
     # real layer
     x = tf.placeholder(tf.float32, shape=[None, 128, 128, 1])
 
-    y_infer = model.inference(x, is_training=False)
+    y_infer = model.inference(x, is_training=True)
 
     expanded_images = tf.image.resize_images(y_infer, 420, 580)
 
@@ -40,7 +40,7 @@ def compute_test(experiment_name, model_num, names, processed_data):
       batch = processed_data[i * batch_size: (i + 1) * batch_size]
       images_result = sess.run(expanded_images, feed_dict={x: batch})
 
-      result = images_result > 0.7
+      result = images_result > threshold
 
       result_dir = 'artifacts/results/%s-%s/' % (experiment_name, model_num)
       if not os.path.exists(result_dir):
@@ -99,7 +99,6 @@ def generate_prediction_file(experiment_name, model_num):
 
 if __name__ == '__main__':
   data_dir = 'artifacts/test'
-
   if not os.path.exists(data_dir):
     data.create_test_data('../test', data_dir)
 
@@ -109,6 +108,6 @@ if __name__ == '__main__':
 
   print(processed_data.shape)
 
-  experiment_name = '2016-07-28_11-14-49'
-  compute_test(experiment_name, '700', names, processed_data)
-  generate_prediction_file(experiment_name, model_num='700')
+  experiment_name = '2016-07-30_03-02-03'
+  compute_test(experiment_name, '500', names, processed_data)
+  generate_prediction_file(experiment_name, model_num='500')
