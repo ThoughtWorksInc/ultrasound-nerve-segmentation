@@ -69,21 +69,21 @@ def inference(images, is_training=True):
 
   with tf.name_scope('conv5'):
     h_conv5 = conv([3, 3], 512, h_pool4, is_training=is_training)
-    # 4 * 4
-    h_pool5 = pool(h_conv5)
+    # 8 * 8
+    # h_pool5 = pool(h_conv5)
 
   with tf.name_scope('conv6'):
-    h_conv6 = conv([3, 3], 1024, h_pool5, is_training=is_training)
+    h_conv6 = conv([3, 3], 1024, h_conv5, is_training=is_training)
 
   with tf.name_scope('upconv7'):
     # 8 * 8
-    h_upsamp7 = tf.image.resize_images(h_pool5, 8, 8)
-    h_upconv7 = conv([3, 3], 512, h_upsamp7, is_training=is_training)
+    # h_upsamp7 = tf.image.resize_images(h_conv6, 8, 8)
+    h_upconv7 = conv([3, 3], 512, h_conv6, is_training=is_training)
 
   with tf.name_scope('merge_conv8'):
     # merge h_conv5 and h_upconv7
-    h_merged8 = tf.concat(3, [h_conv5, h_upconv7])
-    h_conv8 = conv([3, 3], 512, h_merged8, is_training=is_training)
+    # h_merged8 = tf.concat(3, [h_conv5, h_upconv7])
+    h_conv8 = conv([3, 3], 512, h_upconv7, is_training=is_training)
 
   with tf.name_scope('upconv9'):
     # 16 * 16
@@ -122,7 +122,7 @@ def inference(images, is_training=True):
     h_conv16 = conv([3, 3], 32, h_merged16, is_training=is_training)
 
   with tf.name_scope('conv17'):
-    # 32 * 32
+    # 128 * 128
     h_upconv17 = conv([3, 3], 32, h_conv16, is_training=is_training)
 
   with tf.name_scope('conv18'):
