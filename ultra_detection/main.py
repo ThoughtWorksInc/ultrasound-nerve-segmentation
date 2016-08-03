@@ -134,11 +134,9 @@ def preprocess(ultra):
     for i in range(num_train_iter):
       images = ultra.train.images[i * batch_size: (i + 1) * batch_size]
       masks = ultra.train.masks[i * batch_size: (i + 1) * batch_size]
-      resize_train_images = tf.image.resize_images(images, 128, 128)
-      resize_train_masks = tf.image.resize_images(masks, 128, 128)
 
-      resize_train_images = tf.cast(resize_train_images, dtype=tf.float32)
-      resize_train_masks = tf.cast(resize_train_masks, dtype=tf.float32)
+      resize_train_images = tf.cast(images, dtype=tf.float32)
+      resize_train_masks = tf.cast(masks, dtype=tf.float32)
 
       train_mean, train_var = tf.nn.moments(resize_train_images, [0])
       normal_train_images = (resize_train_images - train_mean) / (tf.sqrt(train_var + eps))
@@ -151,11 +149,9 @@ def preprocess(ultra):
     for i in range(num_test_iter):
       images = ultra.test.images[i * batch_size: (i + 1) * batch_size]
       masks = ultra.test.masks[i * batch_size: (i + 1) * batch_size]
-      resize_test_images = tf.image.resize_images(images, 128, 128)
-      resize_test_masks = tf.image.resize_images(masks, 128, 128)
 
-      resize_test_images = tf.cast(resize_test_images, dtype=tf.float32)
-      resize_test_masks = tf.cast(resize_test_masks, dtype=tf.float32)
+      resize_test_images = tf.cast(images, dtype=tf.float32)
+      resize_test_masks = tf.cast(masks, dtype=tf.float32)
 
       test_mean, test_var = tf.nn.moments(resize_test_images, [0])
       normal_test_images = (resize_test_images - test_mean) / (tf.sqrt(test_var + eps))
@@ -201,10 +197,10 @@ def run_testing(experiment_name, processed_datasets):
 
 
 if __name__ == '__main__':
-  data_dir = 'artifacts/data'
+  data_dir = 'artifacts/splitted_data'
 
   if not os.path.exists(data_dir):
-    data.create_train_data('../train', data_dir)
+    data.create_train_data('../splitted_train', data_dir)
 
   # load data
   ultra = data.load_train_data(data_dir, 20, 10)

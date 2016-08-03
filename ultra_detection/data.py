@@ -6,8 +6,8 @@ import matplotlib.pyplot as plt
 
 Datasets = collections.namedtuple('Datasets', ['train', 'test'])
 
-image_rows = 420
-image_cols = 580
+image_rows = 128
+image_cols = 128
 
 
 def create_train_data(input_path, output_dir):
@@ -25,8 +25,8 @@ def create_train_data(input_path, output_dir):
       print('loaded: %g' % i)
     path = os.path.join(input_path, '%s.tif' % name)
     mask_path = os.path.join(input_path, '%s_mask.tif' % name)
-    imgs[i] = plt.imread(path).reshape([image_rows, image_cols, 1])
-    img_masks[i] = plt.imread(mask_path).reshape([image_rows, image_cols, 1])
+    imgs[i] = plt.imread(path)[:, :, 1].reshape([image_rows, image_cols, 1])
+    img_masks[i] = plt.imread(mask_path)[:, :, 1].reshape([image_rows, image_cols, 1])
 
   if not os.path.exists(output_dir):
     os.makedirs(output_dir)
@@ -107,3 +107,54 @@ class DataSet(object):
     end = self._index_in_epoch
 
     return self.images[start:end], self.masks[start:end]
+
+
+def split_image(image, output_dims, nums):
+  i_height, i_width, *others = image.shape
+  o_height, o_width = output_dims
+  h_num, w_num = nums
+
+  assert (i_height - o_height) % (h_num - 1) == 0
+  assert (i_width - o_width) % (w_num - 1) == 0
+
+  h_step = (i_height - o_height) // (h_num - 1)
+  w_step = (i_width - o_width) // (w_num - 1)
+
+  res = np.ndarray((h_num * w_num, o_height, o_width, *others), dtype=np.float32)
+  for i in range(h_num):
+    for j in range(w_num):
+      res[i * w_num + j] = image[i * h_step: i * h_step + o_height, j * w_step: j * w_step + o_width]
+
+  return res
+
+
+def horizontal_merge(img1, img2, step):
+  gap = img2.shape[1] - step
+  return np.concatenate((img1[:, :-gap], (img1[:, -gap:] + img2[:, :gap]) / 2, img2[:, gap:]), axis=1)
+
+
+def vertical_merge(img1, img2, step):
+  gap = img2.shape[0] - step
+  return np.concatenate((img1[:-gap, :], (img1[-gap:, :] + img2[:gap, :]) / 2, img2[gap:, :]), axis=0)
+
+
+def merge(images, method, step):
+  merged = np.copy(images[0])
+  for img in images[1:]:
+    merged = method(merged, img, step)
+
+  return merged
+
+
+def merge_image(images, output_dims, nums):
+  h_num, w_num = nums
+  o_height, o_width = output_dims
+  i_height, i_width, *others = images[0].shape
+
+  h_step = (o_height - i_height) // (h_num - 1)
+  w_step = (o_width - i_width) // (w_num - 1)
+
+  merged_rows = [merge(images[i * w_num: (i + 1) * w_num], method=horizontal_merge, step=w_step) for i in range(h_num)]
+  merged = merge(merged_rows, method=vertical_merge, step=h_step)
+
+  return merged
