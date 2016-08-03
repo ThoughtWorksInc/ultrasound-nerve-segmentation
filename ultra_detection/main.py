@@ -59,10 +59,7 @@ def run_training(experiment_name,
     loss = l2_loss(y, y_infer)
     train_step = training(loss)
     train_step_dice = training(d_loss)
-    eval_dice_0_5 = evaluate(y, y_infer, 0.5)
-    eval_dice_0_6 = evaluate(y, y_infer, 0.6)
-    eval_dice_0_7 = evaluate(y, y_infer, 0.7)
-    eval_dice_0_8 = evaluate(y, y_infer, 0.8)
+    eval_dice = evaluate(y, y_infer, 0.5)
 
     tf.image_summary('train_masks', y_infer, max_images=20)
     tf.image_summary('real_masks', y, max_images=20)
@@ -87,32 +84,19 @@ def run_training(experiment_name,
       if i % log_step == 0 or i == num_iters - 1:
         flush_summary(summary_writer, sess, summary_op, i, feed_dict)
 
-        loss_res, dice_0_5_res, dice_0_6_res, dice_0_7_res, dice_0_8_res, infer_res = sess.run(
-          [loss, eval_dice_0_5, eval_dice_0_6, eval_dice_0_7, eval_dice_0_8, y_infer],
-          feed_dict=feed_dict)
+        loss_res, dice_res, infer_res = sess.run([loss, eval_dice, y_infer], feed_dict=feed_dict)
 
         num_val_iter = len(datasets.test.images) // batch_size
-        total_dice_0_5 = .0
-        total_dice_0_6 = .0
-        total_dice_0_7 = .0
-        total_dice_0_8 = .0
+        total_dice = .0
+
         for j in range(num_val_iter):
           test_batch = datasets.test.next_batch(batch_size)
-          test_batch_dice_0_5, test_batch_dice_0_6, test_batch_dice_0_7, test_batch_dice_0_8 = sess.run(
-            [eval_dice_0_5, eval_dice_0_6, eval_dice_0_7, eval_dice_0_8],
-            feed_dict={x: test_batch[0], y: test_batch[1]}
-          )
-          total_dice_0_5 += test_batch_dice_0_5
-          total_dice_0_6 += test_batch_dice_0_6
-          total_dice_0_7 += test_batch_dice_0_7
-          total_dice_0_8 += test_batch_dice_0_8
-        total_dice_0_5 /= num_val_iter
-        total_dice_0_6 /= num_val_iter
-        total_dice_0_7 /= num_val_iter
-        total_dice_0_8 /= num_val_iter
+          test_batch_dice_0_5 = sess.run(eval_dice, feed_dict={x: test_batch[0], y: test_batch[1]})
+          total_dice += test_batch_dice_0_5
+        total_dice /= num_val_iter
 
-        print("step %d, loss %g, 0.5 score %g, 0.5 validation dice: %g, 0.6 validation dice: %g, 0.7 validation dice: %g, 0.8 validation dice: %g" %
-              (i, loss_res, dice_0_5_res, total_dice_0_5, total_dice_0_6, total_dice_0_7, total_dice_0_8))
+        print("step %d, loss %g, 0.5 score %g, 0.5 validation dice: %g" %
+              (i, loss_res, dice_res, total_dice))
 
       if i % check_step == 0 or i == num_iters - 1:
         saver.save(sess, os.path.join(model_dir, 'model-%g.ckpt' % i))
