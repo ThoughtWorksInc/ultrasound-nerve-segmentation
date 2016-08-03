@@ -196,7 +196,7 @@ def run_testing(experiment_name, processed_datasets):
     y_infer = inference(x, is_training=False)
 
     saver = tf.train.Saver()
-    saver.restore(sess, os.path.join('artifacts/models', experiment_name, 'model-999.ckpt'))
+    saver.restore(sess, os.path.join('artifacts/models', experiment_name, 'model.ckpt'))
 
     batch_size = 100
     num_iters = len(processed_datasets.test.images) // batch_size
