@@ -21,7 +21,7 @@ def generate_rle(image):
 
 
 
-def compute_test(experiment_name, model_num, names, processed_data, threshold=0.75):
+def compute_test(experiment_name, model_num, names, processed_data, threshold=0.5):
   with tf.Session() as sess:
     # real layer
     x = tf.placeholder(tf.float32, shape=[None, 128, 128, 1])
@@ -31,7 +31,7 @@ def compute_test(experiment_name, model_num, names, processed_data, threshold=0.
     expanded_images = tf.image.resize_images(y_infer, 420, 580)
 
     saver = tf.train.Saver()
-    saver.restore(sess, os.path.join('artifacts/models', experiment_name, 'model-%s.ckpt' % model_num))
+    saver.restore(sess, os.path.join('artifacts/models', experiment_name, 'model-%s.ckpt' % model_num if model_num else 'model.ckpt'))
 
     batch_size = 100
     num_iters = len(processed_data) // batch_size
@@ -108,6 +108,6 @@ if __name__ == '__main__':
 
   print(processed_data.shape)
 
-  experiment_name = '2016-07-30_03-02-03'
-  compute_test(experiment_name, '500', names, processed_data)
-  generate_prediction_file(experiment_name, model_num='500')
+  experiment_name = '2016-08-02_05-43-31'
+  # compute_test(experiment_name, None, names, processed_data)
+  generate_prediction_file(experiment_name, model_num=None)
