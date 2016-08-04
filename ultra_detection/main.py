@@ -111,16 +111,21 @@ def flush_summary(summary_writer, sess, summary_op, i, feed_dict):
 
 
 def preprocess(ultra):
-  ultra.train.images -= np.mean(ultra.train.images, axis=(1,2,3))
-  ultra.train.masks -= np.mean(ultra.train.masks, axis=(1,2,3))
-  ultra.train.images /= np.linalg.norm(ultra.train.images, axis=(1, 2, 3))
-  ultra.train.masks /= np.linalg.norm(ultra.train.masks, axis=(1, 2, 3))
+  ultra.train.images = ultra.train.images.astype(np.float32)
+  ultra.train.masks = ultra.train.masks.astype(np.float32)
+  ultra.test.images = ultra.test.images.astype(np.float32)
+  ultra.test.masks = ultra.test.masks.astype(np.float32)
 
-  ultra.test.images -= np.mean(ultra.test.images, axis=(1, 2, 3))
-  ultra.test.masks -= np.mean(ultra.test.masks, axis=(1, 2, 3))
+  ultra.train.images -= np.mean(ultra.train.images)
+  ultra.train.masks -= np.mean(ultra.train.masks)
+  ultra.train.images /= np.linalg.norm(ultra.train.images)
+  ultra.train.masks /= np.linalg.norm(ultra.train.masks)
 
-  ultra.test.images /= np.linalg.norm(ultra.test.images, axis=(1, 2, 3))
-  ultra.test.masks /= np.linalg.norm(ultra.test.masks, axis=(1, 2, 3))
+  ultra.test.images -= np.mean(ultra.test.images)
+  ultra.test.masks -= np.mean(ultra.test.masks)
+
+  ultra.test.images /= np.linalg.norm(ultra.test.images)
+  ultra.test.masks /= np.linalg.norm(ultra.test.masks)
 
   return Datasets(
     train=DataSet(images=ultra.train.images, masks=ultra.train.masks),
