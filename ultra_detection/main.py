@@ -55,10 +55,8 @@ def run_training(experiment_name,
     y = tf.placeholder(tf.float32, shape=[None, 128, 128, 1])
 
     y_infer = inference(x)
-    d_loss = dice_loss(y, y_infer)
     loss = l2_loss(y, y_infer)
     train_step = training(loss)
-    train_step_dice = training(d_loss)
     eval_dice = evaluate(y, y_infer, 0.5)
 
     tf.image_summary('train_masks', y_infer, max_images=20)
@@ -113,84 +111,21 @@ def flush_summary(summary_writer, sess, summary_op, i, feed_dict):
 
 
 def preprocess(ultra):
-  eps = 1e-3
-  num_train_images = ultra.train.images.shape[0]
-  num_test_images = ultra.test.images.shape[0]
+  ultra.train.images -= np.mean(ultra.train.images, axis=(1,2,3))
+  ultra.train.masks -= np.mean(ultra.train.masks, axis=(1,2,3))
+  ultra.train.images /= np.linalg.norm(ultra.train.images, axis=(1, 2, 3))
+  ultra.train.masks /= np.linalg.norm(ultra.train.masks, axis=(1, 2, 3))
 
-  batch_size = 1000
+  ultra.test.images -= np.mean(ultra.test.images, axis=(1, 2, 3))
+  ultra.test.masks -= np.mean(ultra.test.masks, axis=(1, 2, 3))
 
-  num_train_iter = num_train_images // batch_size + 1
-  num_test_iter = num_test_images // batch_size + 1
+  ultra.test.images /= np.linalg.norm(ultra.test.images, axis=(1, 2, 3))
+  ultra.test.masks /= np.linalg.norm(ultra.test.masks, axis=(1, 2, 3))
 
-  processed_train_images = np.ndarray((num_train_images, 128, 128, 1))
-  processed_train_masks = np.ndarray((num_train_images, 128, 128, 1))
-  processed_test_images = np.ndarray((num_test_images, 128, 128, 1))
-  processed_test_masks = np.ndarray((num_test_images, 128, 128, 1))
-
-  with tf.Session():
-    for i in range(num_train_iter):
-      images = ultra.train.images[i * batch_size: (i + 1) * batch_size]
-      masks = ultra.train.masks[i * batch_size: (i + 1) * batch_size]
-
-      resize_train_images = tf.cast(images, dtype=tf.float32)
-      resize_train_masks = tf.cast(masks, dtype=tf.float32)
-
-      train_mean, train_var = tf.nn.moments(resize_train_images, [0])
-      normal_train_images = (resize_train_images - train_mean) / (tf.sqrt(train_var + eps))
-
-      normal_train_masks = resize_train_masks / 255.0
-
-      processed_train_images[i * batch_size: i * batch_size + images.shape[0]] = normal_train_images.eval()
-      processed_train_masks[i * batch_size: i * batch_size + images.shape[0]] = normal_train_masks.eval()
-
-    for i in range(num_test_iter):
-      images = ultra.test.images[i * batch_size: (i + 1) * batch_size]
-      masks = ultra.test.masks[i * batch_size: (i + 1) * batch_size]
-
-      resize_test_images = tf.cast(images, dtype=tf.float32)
-      resize_test_masks = tf.cast(masks, dtype=tf.float32)
-
-      test_mean, test_var = tf.nn.moments(resize_test_images, [0])
-      normal_test_images = (resize_test_images - test_mean) / (tf.sqrt(test_var + eps))
-
-      normal_test_masks = resize_test_masks / 255.0
-
-      processed_test_images[i * batch_size: i * batch_size + images.shape[0]] = normal_test_images.eval()
-      processed_test_masks[i * batch_size: i * batch_size + images.shape[0]] = normal_test_masks.eval()
-
-    return Datasets(
-      train=DataSet(images=processed_train_images, masks=processed_train_masks),
-      test=DataSet(images=processed_test_images, masks=processed_test_masks)
-    )
-
-
-def run_testing(experiment_name, processed_datasets):
-  eps = 1e-3
-  with tf.Session() as sess:
-    # real layer
-    x = tf.placeholder(tf.float32, shape=[None, 128, 128, 1])
-
-    y_infer = inference(x, is_training=False)
-
-    saver = tf.train.Saver()
-    saver.restore(sess, os.path.join('artifacts/models', experiment_name, 'model.ckpt'))
-
-    batch_size = 100
-    num_iters = len(processed_datasets.test.images) // batch_size
-    num_tested = 0
-    total_dice_coef = 0.
-    for i in range(num_iters):
-      batch = processed_datasets.test.next_batch(batch_size)
-      infer_result = sess.run(y_infer, feed_dict={x: batch[0]})
-      predict = (infer_result > 0.5).astype(np.float32)
-      real = batch[1]
-
-      total_dice_coef += np.sum((2 * np.sum(real * predict, axis=(1, 2, 3)) + eps) / (
-        np.sum(real, axis=(1, 2, 3)) + np.sum(predict, axis=(1, 2, 3)) + eps))
-
-      num_tested += batch_size
-
-    print('%g tested, average dice coef: %g' % (num_tested, total_dice_coef / num_tested))
+  return Datasets(
+    train=DataSet(images=ultra.train.images, masks=ultra.train.masks),
+    test=DataSet(images=ultra.test.images, masks=ultra.test.masks)
+  )
 
 
 if __name__ == '__main__':
