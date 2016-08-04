@@ -75,7 +75,7 @@ def run_training(experiment_name,
     saver = tf.train.Saver()
 
     for i in range(num_iters):
-      batch = datasets.train.next_batch(batch_size)
+      batch = datasets.train.next_balance_batch(batch_size)
       batch = preprocess(batch)
       feed_dict = {x: batch[0], y: batch[1]}
 
@@ -112,15 +112,14 @@ def flush_summary(summary_writer, sess, summary_op, i, feed_dict):
 
 
 def preprocess(batch):
-  batch[0] = batch[0].astype(np.float32)
-  batch[1] = batch[1].astype(np.float32)
+  images = batch[0].astype(np.float32)
+  masks = batch[1].astype(np.float32)
 
-  batch[0] -= np.mean(batch[0])
-  batch[1] -= np.mean(batch[1])
-  batch[0] /= np.linalg.norm(batch[0])
-  batch[1] /= np.linalg.norm(batch[1])
+  images -= np.mean(images)
+  images /= np.linalg.norm(images)
+  masks /= 255.0
 
-  return batch
+  return images, masks
 
 
 if __name__ == '__main__':
@@ -130,7 +129,7 @@ if __name__ == '__main__':
     data.create_train_data('../splitted_train', data_dir)
 
   # load data
-  ultra = data.load_train_data(data_dir, 20, 10)
+  ultra = data.load_train_data(data_dir, 200, 20)
 
   # processed_datasets = preprocess(ultra)
   print("train images shape: %s, test images shape: %s"

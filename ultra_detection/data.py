@@ -55,6 +55,7 @@ def create_test_data(input_path, output_dir):
   np.save(os.path.join(output_dir, 'images.npy'), imgs)
   np.save(os.path.join(output_dir, 'names.npy'), image_names)
 
+
 def load_train_data(data_dir, train_size, test_size=None):
   raw_imgs = np.load(os.path.join(data_dir, 'images.npy'))
   raw_masks = np.load(os.path.join(data_dir, 'masks.npy'))
@@ -81,11 +82,13 @@ def load_test_data(data_dir):
   return np.load(os.path.join(data_dir, 'names.npy')), np.load(os.path.join(data_dir, 'images.npy'))
 
 
-
 class DataSet(object):
   def __init__(self, images, masks):
     self.images = images
     self.masks = masks
+
+    self._positive_indexes = np.argwhere(self.masks.sum(axis=(1, 2, 3)) > 0)
+    self._zero_indexes = np.argwhere(self.masks.sum(axis=(1, 2, 3)) == 0)
 
     self._num_examples = len(self.images)
     self._epochs_completed = 0
@@ -107,6 +110,20 @@ class DataSet(object):
     end = self._index_in_epoch
 
     return self.images[start:end], self.masks[start:end]
+
+  def next_balance_batch(self, batch_size):
+    half_size = batch_size // 2
+
+    pos_choice = np.random.choice(self._positive_indexes.shape[0], half_size, replace=False)
+    pos_haf_images = self.images[self._positive_indexes[pos_choice].reshape(half_size)]
+    pos_haf_masks = self.masks[self._positive_indexes[pos_choice].reshape(half_size)]
+    zer_choice = np.random.choice(self._zero_indexes.shape[0], half_size, replace=False)
+    zer_haf_images = self.images[self._zero_indexes[zer_choice].reshape(half_size)]
+    zer_haf_masks = self.masks[self._zero_indexes[zer_choice].reshape(half_size)]
+    images = np.concatenate((pos_haf_images, zer_haf_images), axis=0)
+    masks = np.concatenate((pos_haf_masks, zer_haf_masks), axis=0)
+
+    return images, masks
 
 
 def split_image(image, output_dims, nums):
