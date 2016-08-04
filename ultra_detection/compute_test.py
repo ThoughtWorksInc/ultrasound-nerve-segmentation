@@ -108,6 +108,6 @@ if __name__ == '__main__':
 
   print(processed_data.shape)
 
-  experiment_name = '2016-08-02_05-43-31'
-  compute_test(experiment_name, None, names, processed_data)
-  generate_prediction_file(experiment_name, model_num=None)
+  experiment_name = '2016-08-03_03-59-50'
+  compute_test(experiment_name, 650, names, processed_data)
+  generate_prediction_file(experiment_name, model_num=650)

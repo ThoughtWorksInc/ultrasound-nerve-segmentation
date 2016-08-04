@@ -101,10 +101,7 @@ def run_training(experiment_name,
       if i % check_step == 0 or i == num_iters - 1:
         saver.save(sess, os.path.join(model_dir, 'model-%g.ckpt' % i))
 
-      if i < 300:
-        sess.run(train_step, feed_dict=feed_dict)
-      else:
-        sess.run(train_step_dice, feed_dict=feed_dict)
+      sess.run(train_step, feed_dict=feed_dict)
 
     saver.save(sess, os.path.join(model_dir, 'model.ckpt'))
 
