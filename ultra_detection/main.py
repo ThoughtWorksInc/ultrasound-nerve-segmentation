@@ -4,7 +4,6 @@ from datetime import datetime
 import numpy as np
 import tensorflow as tf
 from ultra_detection import data
-from ultra_detection.data import Datasets, DataSet
 from ultra_detection.model import inference
 
 
@@ -77,6 +76,7 @@ def run_training(experiment_name,
 
     for i in range(num_iters):
       batch = datasets.train.next_batch(batch_size)
+      batch = preprocess(batch)
       feed_dict = {x: batch[0], y: batch[1]}
 
       if i % log_step == 0 or i == num_iters - 1:
@@ -89,6 +89,7 @@ def run_training(experiment_name,
 
         for j in range(num_val_iter):
           test_batch = datasets.test.next_batch(batch_size)
+          test_batch = preprocess(test_batch)
           test_batch_dice_0_5 = sess.run(eval_dice, feed_dict={x: test_batch[0], y: test_batch[1]})
           total_dice += test_batch_dice_0_5
         total_dice /= num_val_iter
@@ -110,27 +111,16 @@ def flush_summary(summary_writer, sess, summary_op, i, feed_dict):
   summary_writer.flush()
 
 
-def preprocess(ultra):
-  ultra.train.images = ultra.train.images.astype(np.float32)
-  ultra.train.masks = ultra.train.masks.astype(np.float32)
-  ultra.test.images = ultra.test.images.astype(np.float32)
-  ultra.test.masks = ultra.test.masks.astype(np.float32)
+def preprocess(batch):
+  batch[0] = batch[0].astype(np.float32)
+  batch[1] = batch[1].astype(np.float32)
 
-  ultra.train.images -= np.mean(ultra.train.images)
-  ultra.train.masks -= np.mean(ultra.train.masks)
-  ultra.train.images /= np.linalg.norm(ultra.train.images)
-  ultra.train.masks /= np.linalg.norm(ultra.train.masks)
+  batch[0] -= np.mean(batch[0])
+  batch[1] -= np.mean(batch[1])
+  batch[0] /= np.linalg.norm(batch[0])
+  batch[1] /= np.linalg.norm(batch[1])
 
-  ultra.test.images -= np.mean(ultra.test.images)
-  ultra.test.masks -= np.mean(ultra.test.masks)
-
-  ultra.test.images /= np.linalg.norm(ultra.test.images)
-  ultra.test.masks /= np.linalg.norm(ultra.test.masks)
-
-  return Datasets(
-    train=DataSet(images=ultra.train.images, masks=ultra.train.masks),
-    test=DataSet(images=ultra.test.images, masks=ultra.test.masks)
-  )
+  return batch
 
 
 if __name__ == '__main__':
@@ -142,14 +132,14 @@ if __name__ == '__main__':
   # load data
   ultra = data.load_train_data(data_dir, 20, 10)
 
-  processed_datasets = preprocess(ultra)
+  # processed_datasets = preprocess(ultra)
   print("train images shape: %s, test images shape: %s"
-        % (processed_datasets.train.images.shape, processed_datasets.test.images.shape))
+        % (ultra.train.images.shape, ultra.test.images.shape))
 
   experiment_name = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
   run_training(
     experiment_name,
-    processed_datasets,
+    ultra,
     log_step=10,
     logdir='artifacts/logs/',
     num_iters=100,
