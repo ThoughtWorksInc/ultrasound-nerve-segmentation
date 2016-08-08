@@ -4,6 +4,7 @@ from datetime import datetime
 import numpy as np
 import tensorflow as tf
 from ultra_detection import data
+from ultra_detection.data import Datasets, DataSet
 from ultra_detection.model import inference
 
 
@@ -53,7 +54,7 @@ def run_training(experiment_name,
     x = tf.placeholder(tf.float32, shape=[None, 128, 128, 1])
     y = tf.placeholder(tf.float32, shape=[None, 128, 128, 1])
 
-    y_infer = inference(x)
+    y_infer = inference(x, 128, 128)
     loss = l2_loss(y, y_infer)
     train_step = training(loss)
     eval_dice = evaluate(y, y_infer, 0.5)

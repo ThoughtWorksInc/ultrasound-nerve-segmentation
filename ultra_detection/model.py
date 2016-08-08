@@ -44,7 +44,7 @@ def _activation_summary(x):
 
 # 420 * 580 => 128 * 128
 
-def inference(images, is_training=True):
+def inference(images,input_rows, input_cols, is_training=True):
   with tf.name_scope('conv1-1'):
     h_conv1_1 = conv([3, 3], 32, images, is_training=is_training)
 
@@ -52,6 +52,8 @@ def inference(images, is_training=True):
     h_conv1_2 = conv([3, 3], 32, h_conv1_1, is_training=is_training)
     # 64 * 64
     h_pool1 = pool(h_conv1_2)
+    input_rows //= 2
+    input_cols //= 2
 
   with tf.name_scope('conv2-1'):
     h_conv2_1 = conv([3, 3], 64, h_pool1, is_training=is_training)
@@ -60,6 +62,8 @@ def inference(images, is_training=True):
     h_conv2_2 = conv([3, 3], 64, h_conv2_1, is_training=is_training)
     # 32 * 32
     h_pool2 = pool(h_conv2_2)
+    input_rows //= 2
+    input_cols //= 2
 
   with tf.name_scope('conv3-1'):
     h_conv3_1 = conv([3, 3], 128, h_pool2, is_training=is_training)
@@ -68,6 +72,8 @@ def inference(images, is_training=True):
     h_conv3_2 = conv([3, 3], 128, h_conv3_1, is_training=is_training)
     # 16 * 16
     h_pool3 = pool(h_conv3_2)
+    input_rows //= 2
+    input_cols //= 2
 
   with tf.name_scope('conv4'):
     h_conv4 = conv([3, 3], 256, h_pool3, is_training=is_training)
@@ -91,7 +97,9 @@ def inference(images, is_training=True):
 
   with tf.name_scope('upconv11'):
     # 32 * 32
-    h_upsamp11 = tf.image.resize_images(h_conv10, 32, 32)
+    input_rows *= 2
+    input_cols *= 2
+    h_upsamp11 = tf.image.resize_images(h_conv10, input_rows, input_cols)
     h_upconv11 = conv([3, 3], 128, h_upsamp11, is_training=is_training)
 
   with tf.name_scope('merge_conv12'):
@@ -100,7 +108,9 @@ def inference(images, is_training=True):
 
   with tf.name_scope('upconv13'):
     # 64 * 64
-    h_upsamp13 = tf.image.resize_images(h_conv12, 64, 64)
+    input_rows *= 2
+    input_cols *= 2
+    h_upsamp13 = tf.image.resize_images(h_conv12, input_rows, input_cols)
     h_upconv13 = conv([3, 3], 64, h_upsamp13, is_training=is_training)
 
   with tf.name_scope('merge_conv14'):
@@ -109,7 +119,9 @@ def inference(images, is_training=True):
 
   with tf.name_scope('upconv15'):
     # 64 * 64
-    h_upsamp15 = tf.image.resize_images(h_conv14, 128, 128)
+    input_rows *= 2
+    input_cols *= 2
+    h_upsamp15 = tf.image.resize_images(h_conv14, input_rows, input_cols)
     h_upconv15 = conv([3, 3], 32, h_upsamp15, is_training=is_training)
 
   with tf.name_scope('merge_conv16'):
@@ -124,7 +136,7 @@ def inference(images, is_training=True):
     weights = tf.Variable(
       tf.truncated_normal(
         [1, 1, 32, 1],
-        stddev=1.0 / math.sqrt(128 * 128 * 32)
+        stddev=1.0 / math.sqrt(input_rows * input_cols * 32)
       ),
       name='weights'
     )
