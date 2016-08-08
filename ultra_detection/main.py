@@ -51,10 +51,10 @@ def run_training(experiment_name,
 
   with tf.Graph().as_default(), tf.Session() as sess:
     # input layer
-    x = tf.placeholder(tf.float32, shape=[None, 128, 128, 1])
-    y = tf.placeholder(tf.float32, shape=[None, 128, 128, 1])
+    x = tf.placeholder(tf.float32, shape=[None, 320, 320, 1])
+    y = tf.placeholder(tf.float32, shape=[None, 320, 320, 1])
 
-    y_infer = inference(x, 128, 128)
+    y_infer = inference(x, 320, 320)
     loss = l2_loss(y, y_infer)
     train_step = training(loss)
     eval_dice = evaluate(y, y_infer, 0.5)
@@ -111,68 +111,29 @@ def flush_summary(summary_writer, sess, summary_op, i, feed_dict):
 
 
 def preprocess(ultra):
-  eps = 1e-3
-  num_train_images = ultra.train.images.shape[0]
-  num_test_images = ultra.test.images.shape[0]
+  ultra.train.images = ultra.train.images.astype(np.float32)
+  ultra.train.masks = ultra.train.masks.astype(np.float32)
+  ultra.test.images = ultra.test.images.astype(np.float32)
+  ultra.test.masks = ultra.test.masks.astype(np.float32)
 
-  batch_size = 1000
+  ultra.train.images -= np.mean(ultra.train.images)
+  ultra.train.images /= np.linalg.norm(ultra.train.images)
+  ultra.train.masks /= 255.0
 
-  num_train_iter = num_train_images // batch_size + 1
-  num_test_iter = num_test_images // batch_size + 1
+  ultra.test.images -= np.mean(ultra.test.images)
+  ultra.test.images /= np.linalg.norm(ultra.test.images)
+  ultra.test.masks /= 255.0
 
-  processed_train_images = np.ndarray((num_train_images, 128, 128, 1))
-  processed_train_masks = np.ndarray((num_train_images, 128, 128, 1))
-  processed_test_images = np.ndarray((num_test_images, 128, 128, 1))
-  processed_test_masks = np.ndarray((num_test_images, 128, 128, 1))
-
-  with tf.Session():
-    for i in range(num_train_iter):
-      images = ultra.train.images[i * batch_size: (i + 1) * batch_size]
-      masks = ultra.train.masks[i * batch_size: (i + 1) * batch_size]
-      resize_train_images = tf.image.resize_images(images, 128, 128)
-      resize_train_masks = tf.image.resize_images(masks, 128, 128)
-
-      resize_train_images = tf.cast(resize_train_images, dtype=tf.float32)
-      resize_train_masks = tf.cast(resize_train_masks, dtype=tf.float32)
-
-      train_mean, train_var = tf.nn.moments(resize_train_images, [0])
-      normal_train_images = (resize_train_images - train_mean) / (tf.sqrt(train_var + eps))
-
-      normal_train_masks = resize_train_masks / 255.0
-
-      processed_train_images[i * batch_size: i * batch_size + images.shape[0]] = normal_train_images.eval()
-      processed_train_masks[i * batch_size: i * batch_size + images.shape[0]] = normal_train_masks.eval()
-
-    for i in range(num_test_iter):
-      images = ultra.test.images[i * batch_size: (i + 1) * batch_size]
-      masks = ultra.test.masks[i * batch_size: (i + 1) * batch_size]
-      resize_test_images = tf.image.resize_images(images, 128, 128)
-      resize_test_masks = tf.image.resize_images(masks, 128, 128)
-
-      resize_test_images = tf.cast(resize_test_images, dtype=tf.float32)
-      resize_test_masks = tf.cast(resize_test_masks, dtype=tf.float32)
-
-      test_mean, test_var = tf.nn.moments(resize_test_images, [0])
-      normal_test_images = (resize_test_images - test_mean) / (tf.sqrt(test_var + eps))
-
-      normal_test_masks = resize_test_masks / 255.0
-
-      processed_test_images[i * batch_size: i * batch_size + images.shape[0]] = normal_test_images.eval()
-      processed_test_masks[i * batch_size: i * batch_size + images.shape[0]] = normal_test_masks.eval()
-
-    return Datasets(
-      train=DataSet(images=processed_train_images, masks=processed_train_masks),
-      test=DataSet(images=processed_test_images, masks=processed_test_masks)
-    )
+  return ultra
 
 
 def run_testing(experiment_name, processed_datasets):
   eps = 1e-3
   with tf.Session() as sess:
     # real layer
-    x = tf.placeholder(tf.float32, shape=[None, 128, 128, 1])
+    x = tf.placeholder(tf.float32, shape=[None, 320, 320, 1])
 
-    y_infer = inference(x, is_training=False)
+    y_infer = inference(x, 320, 320, is_training=False)
 
     saver = tf.train.Saver()
     saver.restore(sess, os.path.join('artifacts/models', experiment_name, 'model.ckpt'))
@@ -185,6 +146,7 @@ def run_testing(experiment_name, processed_datasets):
       batch = processed_datasets.test.next_batch(batch_size)
       infer_result = sess.run(y_infer, feed_dict={x: batch[0]})
       predict = (infer_result > 0.5).astype(np.float32)
+
       real = batch[1]
 
       total_dice_coef += np.sum((2 * np.sum(real * predict, axis=(1, 2, 3)) + eps) / (
