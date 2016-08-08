@@ -196,19 +196,15 @@ def run_testing(experiment_name, processed_datasets):
 
 
 if __name__ == '__main__':
-  data_dir = 'artifacts/data'
+  data_dir = 'artifacts/new_splitted_data'
 
   if not os.path.exists(data_dir):
-    data.create_train_data('../train', data_dir)
+    data.create_train_data('../new_splitted_train', data_dir)
 
   # load data
   ultra = data.load_train_data(data_dir, 200, 20)
 
   processed_datasets = preprocess(ultra)
-
-  has_bp = np.sum(ultra.train.masks, axis=(1,2,3)) > 0
-  processed_datasets.train.images = processed_datasets.train.images[has_bp]
-  processed_datasets.train.masks = processed_datasets.train.masks[has_bp]
 
   print("train images shape: %s, test images shape: %s"
         % (processed_datasets.train.images.shape, processed_datasets.test.images.shape))
@@ -220,6 +216,6 @@ if __name__ == '__main__':
     log_step=10,
     logdir='artifacts/logs/',
     num_iters=100,
-    batch_size=20,
+    batch_size=10,
     check_step=100
   )

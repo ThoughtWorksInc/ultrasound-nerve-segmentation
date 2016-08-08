@@ -1,8 +1,8 @@
 import os
 import sys
-from ultra_detection.data import random_split_image
+
 import matplotlib.pyplot as plt
-from PIL import Image
+from ultra_detection.data import random_split_image
 
 input_width = 320
 num_splitted = 5

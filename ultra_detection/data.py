@@ -6,8 +6,9 @@ import matplotlib.pyplot as plt
 
 Datasets = collections.namedtuple('Datasets', ['train', 'test'])
 
-image_rows = 128
-image_cols = 128
+image_rows = 320
+image_cols = 320
+ext = 'png'
 
 
 def create_train_data(input_path, output_dir):
@@ -23,10 +24,10 @@ def create_train_data(input_path, output_dir):
   for i, name in enumerate(image_names):
     if i % 100 == 0:
       print('loaded: %g' % i)
-    path = os.path.join(input_path, '%s.tif' % name)
-    mask_path = os.path.join(input_path, '%s_mask.tif' % name)
-    imgs[i] = plt.imread(path)[:, :, 1].reshape([image_rows, image_cols, 1])
-    img_masks[i] = plt.imread(mask_path)[:, :, 1].reshape([image_rows, image_cols, 1])
+    path = os.path.join(input_path, '%s.%s' % (name, ext))
+    mask_path = os.path.join(input_path, '%s_mask.%s' % (name, ext))
+    imgs[i] = plt.imread(path)[:, :, 0].reshape([image_rows, image_cols, 1])
+    img_masks[i] = plt.imread(mask_path)[:, :, 0].reshape([image_rows, image_cols, 1])
 
   if not os.path.exists(output_dir):
     os.makedirs(output_dir)
@@ -46,7 +47,7 @@ def create_test_data(input_path, output_dir):
   for i, name in enumerate(image_names):
     if i % 100 == 0:
       print('loaded: %g' % i)
-    path = os.path.join(input_path, '%s.tif' % name)
+    path = os.path.join(input_path, '%s.%s' % (name, ext))
     imgs[i] = plt.imread(path).reshape([image_rows, image_cols, 1])
 
   if not os.path.exists(output_dir):
