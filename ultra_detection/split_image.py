@@ -1,11 +1,11 @@
 import os
 import sys
-from ultra_detection.data import split_image
+from ultra_detection.data import random_split_image
 import matplotlib.pyplot as plt
+from PIL import Image
 
-input_width = 128
-num_vertical = 5
-num_horizontal = 5
+input_width = 320
+num_splitted = 5
 
 if __name__ == '__main__':
   input_dir = sys.argv[1]
@@ -19,20 +19,15 @@ if __name__ == '__main__':
                  if '_mask' not in name and name != '.DS_Store']
 
   for j, name in enumerate(image_names):
-    splitted_images = split_image(
+    splitted_images, splitted_masks = random_split_image(
       plt.imread(os.path.join(input_dir, '%s.tif' % name)),
-      (input_width, input_width),
-      (num_vertical, num_horizontal)
-    )
-    splitted_masks = split_image(
       plt.imread(os.path.join(input_dir, '%s_mask.tif' % name)),
       (input_width, input_width),
-      (num_vertical, num_horizontal)
+      num_splitted
     )
-
-    for i in range(num_vertical * num_horizontal):
-      plt.imsave(os.path.join(output_dir, '%s-%s.tif' % (name, i)), splitted_images[i], cmap='gray', vmin=0, vmax=255)
-      plt.imsave(os.path.join(output_dir, '%s-%s_mask.tif' % (name, i)), splitted_masks[i], cmap='gray', vmin=0, vmax=255)
+    for i in range(num_splitted):
+      plt.imsave(os.path.join(output_dir, '%s-%s.png' % (name, i)), splitted_images[i], cmap='gray', vmin=0, vmax=255)
+      plt.imsave(os.path.join(output_dir, '%s-%s_mask.png' % (name, i)), splitted_masks[i], cmap='gray', vmin=0, vmax=255)
 
     if j % 100 == 0:
       print('finished %s' % j)

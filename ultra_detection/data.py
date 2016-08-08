@@ -126,23 +126,34 @@ class DataSet(object):
     return images, masks
 
 
-def split_image(image, output_dims, nums):
+def random_split_image(image, mask, output_dims, num):
   i_height, i_width, *others = image.shape
   o_height, o_width = output_dims
-  h_num, w_num = nums
 
-  assert (i_height - o_height) % (h_num - 1) == 0
-  assert (i_width - o_width) % (w_num - 1) == 0
+  has_bp = mask.sum() > 0
 
-  h_step = (i_height - o_height) // (h_num - 1)
-  w_step = (i_width - o_width) // (w_num - 1)
+  res_images = np.ndarray((num, o_height, o_width, *others), dtype=np.float32)
+  res_masks = np.ndarray((num, o_height, o_width, *others), dtype=np.float32)
 
-  res = np.ndarray((h_num * w_num, o_height, o_width, *others), dtype=np.float32)
-  for i in range(h_num):
-    for j in range(w_num):
-      res[i * w_num + j] = image[i * h_step: i * h_step + o_height, j * w_step: j * w_step + o_width]
+  if has_bp:
+    bp_pos = np.argwhere(mask > 0)
+    top = bp_pos[:, 0].min()
+    bottom = bp_pos[:, 0].max()
+    left = bp_pos[:, 1].min()
+    right = bp_pos[:, 1].max()
+    for i in range(num):
+      split_top = np.random.randint(np.maximum(bottom - o_height, 0), np.minimum(top, i_height - o_height))
+      split_left = np.random.randint(np.maximum(right - o_width, 0), np.minimum(left, i_width - o_width))
+      res_images[i] = image[split_top: split_top + o_height, split_left: split_left + o_width]
+      res_masks[i] = mask[split_top: split_top + o_height, split_left: split_left + o_width]
+  else:
+    for i in range(num):
+      split_top = np.random.randint(0, i_height - o_height)
+      split_left = np.random.randint(0, i_width - o_width)
+      res_images[i] = image[split_top: split_top + o_height, split_left: split_left + o_width]
+      res_masks[i] = mask[split_top: split_top + o_height, split_left: split_left + o_width]
 
-  return res
+  return res_images, res_masks
 
 
 def horizontal_merge(img1, img2, step):
