@@ -2,6 +2,8 @@ import os
 import sys
 
 import matplotlib.pyplot as plt
+import numpy as np
+from PIL import Image
 from ultra_detection.data import random_split_image
 
 input_width = 320
@@ -26,8 +28,11 @@ if __name__ == '__main__':
       num_splitted
     )
     for i in range(num_splitted):
-      plt.imsave(os.path.join(output_dir, '%s-%s.png' % (name, i)), splitted_images[i], cmap='gray', vmin=0, vmax=255)
-      plt.imsave(os.path.join(output_dir, '%s-%s_mask.png' % (name, i)), splitted_masks[i], cmap='gray', vmin=0, vmax=255)
+      Image.fromarray(splitted_images[i]).save(os.path.join(output_dir, '%s-%s.png' % (name, i)))
+      Image.fromarray(splitted_masks[i]).save(os.path.join(output_dir, '%s-%s_mask.png' % (name, i)))
+
+      # plt.imsave(os.path.join(output_dir, '%s-%s.png' % (name, i)), splitted_images[i], cmap='gray', vmin=0, vmax=255)
+      # plt.imsave(os.path.join(output_dir, '%s-%s_mask.png' % (name, i)), splitted_masks[i], cmap='gray', vmin=0, vmax=255)
 
     if j % 100 == 0:
       print('finished %s' % j)

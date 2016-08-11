@@ -4,7 +4,6 @@ from datetime import datetime
 import numpy as np
 import tensorflow as tf
 from ultra_detection import data
-from ultra_detection.data import Datasets, DataSet
 from ultra_detection.model import inference
 
 
@@ -23,7 +22,7 @@ def l2_loss(y, y_infer):
 def training(loss):
   tf.scalar_summary(loss.op.name, loss)
   # solver
-  train_step = tf.train.AdamOptimizer(1e-2).minimize(loss)
+  train_step = tf.train.AdamOptimizer(1e-3).minimize(loss)
   return train_step
 
 
@@ -50,6 +49,7 @@ def run_training(experiment_name,
     os.makedirs(model_dir)
 
   with tf.Graph().as_default(), tf.Session() as sess:
+
     # input layer
     x = tf.placeholder(tf.float32, shape=[None, 320, 320, 1])
     y = tf.placeholder(tf.float32, shape=[None, 320, 320, 1])
@@ -179,5 +179,5 @@ if __name__ == '__main__':
     logdir='artifacts/logs/',
     num_iters=100,
     batch_size=10,
-    check_step=100
+    check_step=10
   )

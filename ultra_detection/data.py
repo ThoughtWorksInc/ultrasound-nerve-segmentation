@@ -133,8 +133,8 @@ def random_split_image(image, mask, output_dims, num):
 
   has_bp = mask.sum() > 0
 
-  res_images = np.ndarray((num, o_height, o_width, *others), dtype=np.float32)
-  res_masks = np.ndarray((num, o_height, o_width, *others), dtype=np.float32)
+  res_images = np.ndarray((num, o_height, o_width, *others), dtype=np.uint8)
+  res_masks = np.ndarray((num, o_height, o_width, *others), dtype=np.uint8)
 
   if has_bp:
     bp_pos = np.argwhere(mask > 0)

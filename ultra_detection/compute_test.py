@@ -5,8 +5,8 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 from ultra_detection import model, data
 
-image_rows = 420
-image_cols = 580
+image_rows = 320
+image_cols = 320
 
 def generate_rle(image):
   vec = image.T.reshape((image_cols * image_rows)).tolist()
@@ -30,7 +30,7 @@ def compute_test(experiment_name, model_num, names, resize_rows, resize_cols, pr
 
     y_infer = model.inference(x, resize_rows, resize_cols, is_training=True)
 
-    expanded_images = tf.image.resize_images(y_infer, image_rows, image_cols)
+    # expanded_images = tf.image.resize_images(y_infer, image_rows, image_cols)
 
     saver = tf.train.Saver()
     saver.restore(sess, os.path.join('artifacts/models', experiment_name, 'model-%s.ckpt' % model_num if model_num else 'model.ckpt'))
@@ -40,9 +40,9 @@ def compute_test(experiment_name, model_num, names, resize_rows, resize_cols, pr
     num_tested = 0
     for i in range(num_iters + 1):
       batch = processed_data[i * batch_size: (i + 1) * batch_size]
-      images_result = sess.run(expanded_images, feed_dict={x: batch})
+      images_result = sess.run(y_infer, feed_dict={x: batch})
 
-      result = images_result > threshold
+      # result = images_result > threshold
 
       result_dir = 'artifacts/results/%s-%s/' % (experiment_name, model_num)
       if not os.path.exists(result_dir):
@@ -50,7 +50,7 @@ def compute_test(experiment_name, model_num, names, resize_rows, resize_cols, pr
 
       num_result = images_result.shape[0]
 
-      result = result.reshape(num_result, image_rows, image_cols)
+      result = images_result.reshape(num_result, resize_rows, resize_cols)
 
       for j in range(num_result):
         image_index = i * batch_size + j
@@ -66,15 +66,16 @@ def preprocess(images, resize_rows, resize_cols):
   eps = 1e-3
   batch_size = 2000
   num_images = len(images)
-  resize_images = np.ndarray((num_images, resize_rows, resize_cols, 1))
-  with tf.Session():
-    for i in range(num_images // batch_size + 1):
-      batch_images = tf.image.resize_images(images[i * batch_size: (i + 1) * batch_size], resize_rows, resize_cols)
-
-      batch_images = tf.cast(batch_images, dtype=tf.float32)
-
-      mean, var = tf.nn.moments(batch_images, [0])
-      resize_images[i * batch_size: (i + 1) * batch_size] = ((batch_images - mean) / (tf.sqrt(var + eps))).eval()
+  # resize_images = np.ndarray((num_images, resize_rows, resize_cols, 1))
+  resize_images = images[:, 50:-50, 130:-130, :]
+  # with tf.Session():
+  #   for i in range(num_images // batch_size + 1):
+  #     batch_images = tf.image.resize_images(images[i * batch_size: (i + 1) * batch_size], resize_rows, resize_cols)
+  #
+  #     batch_images = tf.cast(batch_images, dtype=tf.float32)
+  #
+  #     mean, var = tf.nn.moments(batch_images, [0])
+  #     resize_images[i * batch_size: (i + 1) * batch_size] = ((batch_images - mean) / (tf.sqrt(var + eps))).eval()
   return resize_images
 
 
@@ -106,10 +107,10 @@ if __name__ == '__main__':
 
   names, test_data = data.load_test_data(data_dir)
 
-  processed_data = preprocess(test_data, 256, 256)
+  processed_data = preprocess(test_data, 320, 320)
 
   print(processed_data.shape)
 
-  experiment_name = '2016-08-03_03-59-50'
-  compute_test(experiment_name, 400, names, 256, 256, processed_data)
-  generate_prediction_file(experiment_name, model_num=400)
+  experiment_name = '2016-08-09_16-09-57'
+  compute_test(experiment_name, 1500, names, 320, 320, processed_data)
+  generate_prediction_file(experiment_name, model_num=1500)
