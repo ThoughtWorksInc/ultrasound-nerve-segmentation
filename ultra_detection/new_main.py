@@ -71,7 +71,7 @@ class Trainer:
     return image_batch, mask_batch
 
   def loss(self, mask, mask_infer):
-    return tf.nn.l2_loss(mask_infer - mask)
+    return tf.reduce_mean(tf.reduce_sum(tf.abs(mask_infer - mask), reduction_indices=(1, 2, 3)))
 
   def train(self, loss):
     tf.scalar_summary(loss.op.name, loss)

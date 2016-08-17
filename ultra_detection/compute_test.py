@@ -3,13 +3,15 @@ from itertools import groupby
 import numpy as np
 import matplotlib.pyplot as plt
 import tensorflow as tf
+from PIL import Image
 from ultra_detection import model, data
 
-image_rows = 320
-image_cols = 320
+image_rows = 416
+image_cols = 576
 
 def generate_rle(image):
-  vec = image.T.reshape((image_cols * image_rows)).tolist()
+  rows, cols, *_ = image.shape
+  vec = image.T.reshape((cols * rows)).tolist()
   grouped = [(value, len(list(value_iter))) for value, value_iter in groupby(vec)]
   pair_list = []
   start_index = 1
@@ -33,7 +35,7 @@ def compute_test(experiment_name, model_num, names, resize_rows, resize_cols, pr
     # expanded_images = tf.image.resize_images(y_infer, image_rows, image_cols)
 
     saver = tf.train.Saver()
-    saver.restore(sess, os.path.join('artifacts/models', experiment_name, 'model-%s.ckpt' % model_num if model_num else 'model.ckpt'))
+    saver.restore(sess, os.path.join('artifacts/models', experiment_name, 'model.ckpt-%s' % model_num if model_num is not None else 'model.ckpt'))
 
     batch_size = 10
     num_iters = len(processed_data) // batch_size
@@ -42,7 +44,7 @@ def compute_test(experiment_name, model_num, names, resize_rows, resize_cols, pr
       batch = processed_data[i * batch_size: (i + 1) * batch_size]
       images_result = sess.run(y_infer, feed_dict={x: batch})
 
-      # result = images_result > threshold
+      result = images_result > threshold
 
       result_dir = 'artifacts/results/%s-%s/' % (experiment_name, model_num)
       if not os.path.exists(result_dir):
@@ -50,11 +52,12 @@ def compute_test(experiment_name, model_num, names, resize_rows, resize_cols, pr
 
       num_result = images_result.shape[0]
 
-      result = images_result.reshape(num_result, resize_rows, resize_cols)
+      result = result.reshape(num_result, resize_rows, resize_cols)
 
       for j in range(num_result):
         image_index = i * batch_size + j
-        plt.imsave(os.path.join(result_dir, '%s_mask.tif' % names[image_index]), result[j], cmap='gray', vmin=0, vmax=1)
+        Image.fromarray((result[j] * 255.0).astype(np.uint8)).save(os.path.join(result_dir, '%s_mask.png' % names[image_index]))
+        # plt.imsave(os.path.join(result_dir, '%s_mask.png' % names[image_index]), result[j], cmap='gray', vmin=0, vmax=1)
         generate_rle(result[j])
 
       num_tested += batch_size
@@ -67,7 +70,7 @@ def preprocess(images, resize_rows, resize_cols):
   batch_size = 2000
   num_images = len(images)
   # resize_images = np.ndarray((num_images, resize_rows, resize_cols, 1))
-  resize_images = images[:, 50:-50, 130:-130, :]
+  resize_images = images[:, 2:-2, 2:-2, :]
   # with tf.Session():
   #   for i in range(num_images // batch_size + 1):
   #     batch_images = tf.image.resize_images(images[i * batch_size: (i + 1) * batch_size], resize_rows, resize_cols)
@@ -94,7 +97,8 @@ def generate_prediction_file(experiment_name, model_num):
   with open(prediction_dir + 'result.csv', 'w') as f:
     for name in image_names:
       index = name.split('_')[0]
-      image = plt.imread(os.path.join(result_dir, name + '.tif'))[:, :, 1]
+      image = plt.imread(os.path.join(result_dir, name + '.png'))
+      image = np.pad(image, ((2, 2), (2, 2)), 'constant', constant_values=(0,))
       rle = generate_rle(image)
       f.write('%s, %s\n' % (index, rle))
 
@@ -111,6 +115,6 @@ if __name__ == '__main__':
 
   print(processed_data.shape)
 
-  experiment_name = '2016-08-09_16-09-57'
-  compute_test(experiment_name, 1500, names, 320, 320, processed_data)
-  generate_prediction_file(experiment_name, model_num=1500)
+  experiment_name = 'temp-0'
+  # compute_test(experiment_name, 7999, names, 416, 576, processed_data)
+  generate_prediction_file(experiment_name, model_num=7999)
